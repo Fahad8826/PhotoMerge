@@ -23,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      Navigator.pushReplacementNamed(context, '/');
+      Navigator.pushNamedAndRemoveUntil(context, '/',(route) => false,);
     } catch (e) {
       setState(() {
         _error = e.toString();

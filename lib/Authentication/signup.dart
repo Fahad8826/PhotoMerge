@@ -35,7 +35,11 @@ class _SignupPageState extends State<SignupPage> {
         'role': _selectedRole,
       });
 
-      Navigator.pushReplacementNamed(context, '/');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/',
+        (route) => false,
+      );
     } catch (e) {
       setState(() {
         _error = e.toString();

@@ -40,6 +40,13 @@ dependencies:
   firebase_core: ^3.10.1
   firebase_auth: ^5.4.1
   cloud_firestore: ^5.6.6
+  cloudinary_public: ^0.23.1
+  cached_network_image: ^3.4.1
+  flutter_image_gallery_saver: ^0.0.2
+  jiffy: ^6.4.3
+  palette_generator: ^0.3.3+6
+
+
 
 dev_dependencies:
   flutter_test:
