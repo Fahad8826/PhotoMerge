@@ -1,347 +1,3 @@
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:flutter/material.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/rendering.dart';
-// import 'dart:ui' as ui;
-// import 'dart:typed_data';
-// import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
-// import 'package:permission_handler/permission_handler.dart';
-// import 'package:cached_network_image/cached_network_image.dart';
-
-// class UserDashboard extends StatefulWidget {
-//   const UserDashboard({Key? key}) : super(key: key);
-
-//   @override
-//   State<UserDashboard> createState() => _UserDashboardState();
-// }
-
-// class _UserDashboardState extends State<UserDashboard> {
-//   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-//   final String? userId = FirebaseAuth.instance.currentUser?.uid;
-//   Map<String, dynamic>? userData;
-
-//   // Map to store RepaintBoundary keys for each photo
-//   final Map<String, GlobalKey> _photoKeys = {};
-
-//   // Constants for Firestore collections
-//   final String _adminImagesCollection = 'admin_images';
-//   final String _adminDocId = 'NBhMBNH4AbZl0bNO3D0SYVPXstn1';
-//   final String _imagesSubcollection = 'images';
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _getUserData();
-//   }
-
-//   Future<void> _getUserData() async {
-//     if (userId != null) {
-//       final doc = await _firestore.collection('user_profile').doc(userId).get();
-//       if (doc.exists) {
-//         setState(() {
-//           userData = doc.data();
-//         });
-//       }
-//     }
-//   }
-
-//   Future<void> _captureAndSaveImage(String photoId) async {
-//     try {
-//       // Request storage permission
-//       var status = await Permission.storage.request();
-//       if (!status.isGranted) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text('Storage permission denied')),
-//         );
-//         return;
-//       }
-
-//       final key = _photoKeys[photoId];
-//       if (key == null || key.currentContext == null) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text('Cannot capture image at this time')),
-//         );
-//         return;
-//       }
-
-//       // Show loading indicator
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(content: Text('Processing image...')),
-//       );
-
-//       // Convert widget to image
-//       RenderRepaintBoundary boundary =
-//           key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-//       ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-//       ByteData? byteData =
-//           await image.toByteData(format: ui.ImageByteFormat.png);
-//       Uint8List pngBytes = byteData!.buffer.asUint8List();
-
-//       // Save image using flutter_image_gallery_saver
-//       // Version 0.0.2 returns void, so we can't check the result
-//       await FlutterImageGallerySaver.saveImage(pngBytes);
-
-//       // Since we can't check the result, we'll just assume success if no exception is thrown
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(content: Text('Image saved to gallery!')),
-//       );
-//     } catch (e) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('Error saving image: $e')),
-//       );
-//     }
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text('Photo Gallery'),
-//         actions: [
-//           IconButton(
-//             icon: const Icon(Icons.refresh),
-//             onPressed: _getUserData,
-//           ),
-//         ],
-//       ),
-//       drawer: userId != null
-//           ? Drawer(
-//               child: StreamBuilder<DocumentSnapshot>(
-//                 stream: _firestore
-//                     .collection('user_profile')
-//                     .doc(userId)
-//                     .snapshots(),
-//                 builder: (context, snapshot) {
-//                   if (!snapshot.hasData || snapshot.data == null) {
-//                     return const Center(child: CircularProgressIndicator());
-//                   }
-
-//                   Map<String, dynamic>? userData = snapshot.data!.exists
-//                       ? snapshot.data!.data() as Map<String, dynamic>
-//                       : null;
-
-//                   if (userData == null) {
-//                     return const Center(child: Text('Profile not found'));
-//                   }
-
-//                   String name = userData['name'] ?? 'User';
-//                   String email = userData['email'] ?? '';
-//                   String imageUrl = userData['image'] ?? '';
-
-//                   return ListView(
-//                     padding: EdgeInsets.zero,
-//                     children: <Widget>[
-//                       UserAccountsDrawerHeader(
-//                         accountName: Text(name),
-//                         accountEmail: Text(email),
-//                         currentAccountPicture: CircleAvatar(
-//                           backgroundImage: imageUrl.isNotEmpty
-//                               ? NetworkImage(imageUrl)
-//                               : null,
-//                           child: imageUrl.isEmpty
-//                               ? const Icon(Icons.person,
-//                                   size: 50, color: Colors.white)
-//                               : null,
-//                           backgroundColor:
-//                               imageUrl.isEmpty ? Colors.grey : null,
-//                         ),
-//                         decoration: const BoxDecoration(
-//                           color: Colors.blue,
-//                         ),
-//                       ),
-//                       ListTile(
-//                         leading: const Icon(Icons.edit),
-//                         title: const Text('Edit Profile'),
-//                         onTap: () {
-//                           Navigator.pop(context);
-//                           Navigator.pushNamed(context, '/profile');
-//                         },
-//                       ),
-//                       ListTile(
-//                         leading: const Icon(Icons.logout),
-//                         title: const Text('Log Out'),
-//                         onTap: () async {
-//                           Navigator.pop(context);
-//                           await FirebaseAuth.instance.signOut();
-//                           Navigator.pushReplacementNamed(context, '/login');
-//                         },
-//                       ),
-//                     ],
-//                   );
-//                 },
-//               ),
-//             )
-//           : null,
-//       body: StreamBuilder<QuerySnapshot>(
-//         // Updated to access the correct nested collection
-//         stream: _firestore
-//             .collection(_adminImagesCollection)
-//             .doc(_adminDocId)
-//             .collection(_imagesSubcollection)
-//             .snapshots(),
-//         builder: (context, snapshot) {
-//           if (snapshot.connectionState == ConnectionState.waiting) {
-//             return const Center(child: CircularProgressIndicator());
-//           }
-
-//           if (snapshot.hasError) {
-//             return Center(child: Text('Error: ${snapshot.error}'));
-//           }
-
-//           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-//             return const Center(child: Text('No photos available'));
-//           }
-
-//           return userData == null
-//               ? const Center(child: Text('Loading user data...'))
-//               : ListView.builder(
-//                   padding: const EdgeInsets.all(10),
-//                   itemCount: snapshot.data!.docs.length,
-//                   itemBuilder: (context, index) {
-//                     final photo = snapshot.data!.docs[index].data()
-//                         as Map<String, dynamic>;
-//                     final String photoId = snapshot.data!.docs[index].id;
-//                     // Updated to use image_url field from your Firestore
-//                     final String photoUrl = photo['image_url'] ?? '';
-
-//                     // Create a unique key for each photo
-//                     if (!_photoKeys.containsKey(photoId)) {
-//                       _photoKeys[photoId] = GlobalKey();
-//                     }
-
-//                     return Card(
-//                       elevation: 4,
-//                       margin: const EdgeInsets.only(bottom: 16),
-//                       child: Column(
-//                         children: [
-//                           // The content to be captured (image + user data)
-//                           RepaintBoundary(
-//                             key: _photoKeys[photoId],
-//                             child: Column(
-//                               children: [
-//                                 // Photo
-//                                 AspectRatio(
-//                                   aspectRatio:
-//                                       4 / 3, // Maintain image aspect ratio
-//                                   child: CachedNetworkImage(
-//                                     imageUrl: photoUrl,
-//                                     fit: BoxFit.cover,
-//                                     width: double.infinity,
-//                                     placeholder: (context, url) => const Center(
-//                                         child: CircularProgressIndicator()),
-//                                     errorWidget: (context, url, error) =>
-//                                         const Icon(Icons.error),
-//                                   ),
-//                                 ),
-
-//                                 // User data footer
-//                                 Container(
-//                                   width: double.infinity,
-//                                   color: Colors.white,
-//                                   padding: const EdgeInsets.all(12.0),
-//                                   child: Column(
-//                                     crossAxisAlignment:
-//                                         CrossAxisAlignment.start,
-//                                     children: [
-//                                       Row(
-//                                         children: [
-//                                           CircleAvatar(
-//                                             radius: 20,
-//                                             backgroundImage:
-//                                                 userData!['userImage'] !=
-//                                                             null &&
-//                                                         userData!['userImage']
-//                                                             .isNotEmpty
-//                                                     ? NetworkImage(
-//                                                         userData!['userImage'])
-//                                                     : null,
-//                                             child: (userData!['userImage'] ==
-//                                                         null ||
-//                                                     userData!['userImage']
-//                                                         .isEmpty)
-//                                                 ? const Icon(Icons.person,
-//                                                     size: 20)
-//                                                 : null,
-//                                           ),
-//                                           const SizedBox(width: 12),
-//                                           Column(
-//                                             crossAxisAlignment:
-//                                                 CrossAxisAlignment.start,
-//                                             children: [
-//                                               Text(
-//                                                 userData!['name'] ?? 'User',
-//                                                 style: const TextStyle(
-//                                                   fontWeight: FontWeight.bold,
-//                                                   fontSize: 18,
-//                                                 ),
-//                                               ),
-//                                               Text(
-//                                                 userData!['designation'] ??
-//                                                     'No designation',
-//                                                 style: TextStyle(
-//                                                   fontSize: 14,
-//                                                   color: Colors.grey[700],
-//                                                 ),
-//                                               ),
-//                                             ],
-//                                           ),
-//                                         ],
-//                                       ),
-//                                       const SizedBox(height: 8),
-//                                       Row(
-//                                         children: [
-//                                           const Icon(Icons.email,
-//                                               size: 16, color: Colors.grey),
-//                                           const SizedBox(width: 4),
-//                                           Text(
-//                                             userData!['email'] ?? '',
-//                                             style:
-//                                                 const TextStyle(fontSize: 14),
-//                                           ),
-//                                         ],
-//                                       ),
-//                                       if (userData!['phone'] != null)
-//                                         Row(
-//                                           children: [
-//                                             const Icon(Icons.phone,
-//                                                 size: 16, color: Colors.grey),
-//                                             const SizedBox(width: 4),
-//                                             Text(
-//                                               userData!['phone'],
-//                                               style:
-//                                                   const TextStyle(fontSize: 14),
-//                                             ),
-//                                           ],
-//                                         ),
-//                                     ],
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                           ),
-
-//                           // Download button (outside of RepaintBoundary)
-//                           Padding(
-//                             padding: const EdgeInsets.all(8.0),
-//                             child: ElevatedButton.icon(
-//                               icon: const Icon(Icons.download),
-//                               label: const Text('Download Merged Image'),
-//                               style: ElevatedButton.styleFrom(
-//                                 minimumSize: const Size(double.infinity, 40),
-//                               ),
-//                               onPressed: () => _captureAndSaveImage(photoId),
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     );
-//                   },
-//                 );
-//         },
-//       ),
-//     );
-//   }
-// }
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -371,7 +27,6 @@ class _UserDashboardState extends State<UserDashboard> {
 
   // Constants for Firestore collections
   final String _adminImagesCollection = 'admin_images';
-  final String _adminDocId = 'NBhMBNH4AbZl0bNO3D0SYVPXstn1';
   final String _imagesSubcollection = 'images';
 
   @override
@@ -403,6 +58,7 @@ class _UserDashboardState extends State<UserDashboard> {
       );
       return paletteGenerator.dominantColor?.color ?? Colors.white;
     } catch (e) {
+      print('Error getting dominant color for $imageUrl: $e');
       return Colors.white; // Fallback color
     }
   }
@@ -452,6 +108,20 @@ class _UserDashboardState extends State<UserDashboard> {
     }
   }
 
+  // Stream to fetch images from all images subcollections using collection group query
+  Stream<List<QueryDocumentSnapshot>> _getAllImagesStream() {
+    return _firestore
+        .collectionGroup(_imagesSubcollection)
+        .snapshots()
+        .map((snapshot) {
+      print('Fetched ${snapshot.docs.length} documents');
+      for (var doc in snapshot.docs) {
+        print('Doc ID: ${doc.id}, Data: ${doc.data()}');
+      }
+      return snapshot.docs;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -466,88 +136,79 @@ class _UserDashboardState extends State<UserDashboard> {
       ),
       drawer: userId != null
           ? Drawer(
-              child: StreamBuilder<DocumentSnapshot>(
-                stream: _firestore
-                    .collection('user_profile')
-                    .doc(userId)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData || snapshot.data == null) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  Map<String, dynamic>? userData = snapshot.data!.exists
-                      ? snapshot.data!.data() as Map<String, dynamic>
-                      : null;
-
-                  if (userData == null) {
-                    return const Center(child: Text('Profile not found'));
-                  }
-
-                  String name = userData['firstName'] ?? 'User';
-                  String email = userData['email'] ?? '';
-                  String imageUrl = userData['userImage'] ?? '';
-
-                  return ListView(
-                    padding: EdgeInsets.zero,
-                    children: <Widget>[
-                      UserAccountsDrawerHeader(
-                        accountName: Text(name),
-                        accountEmail: Text(email),
-                        currentAccountPicture: CircleAvatar(
-                          backgroundImage: imageUrl.isNotEmpty
-                              ? NetworkImage(imageUrl)
-                              : null,
-                          child: imageUrl.isEmpty
-                              ? const Icon(Icons.person,
-                                  size: 50, color: Colors.white)
-                              : null,
-                          backgroundColor:
-                              imageUrl.isEmpty ? Colors.grey : null,
+              child: ListView(
+                padding: EdgeInsets.zero, // Ensure no extra padding at the top
+                children: <Widget>[
+                  // Drawer Header
+                  DrawerHeader(
+                    decoration: const BoxDecoration(
+                      color: Colors.blue, // Material Design primary color
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Menu',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                        ),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.edit),
-                        title: const Text('Edit Profile'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.pushNamed(context, '/profile');
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.logout),
-                        title: const Text('Log Out'),
-                        onTap: () async {
-                          Navigator.pop(context);
-                          await FirebaseAuth.instance.signOut();
-                          Navigator.pushReplacementNamed(context, '/login');
-                        },
-                      ),
-                    ],
-                  );
-                },
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                  // Edit Profile Tile
+                  ListTile(
+                    leading: const Icon(
+                      Icons.edit,
+                      color: Colors.grey, // Consistent icon color
+                    ),
+                    title: const Text(
+                      'Edit Profile',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context); // Close the drawer
+                      Navigator.pushNamed(context, '/profile');
+                    },
+                  ),
+                  // Log Out Tile
+                  ListTile(
+                    leading: const Icon(
+                      Icons.logout,
+                      color: Colors.grey,
+                    ),
+                    title: const Text(
+                      'Log Out',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(context); // Close the drawer
+                      await FirebaseAuth.instance.signOut();
+                      Navigator.pushReplacementNamed(context, '/login');
+                    },
+                  ),
+                ],
               ),
             )
           : null,
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection(_adminImagesCollection)
-            .doc(_adminDocId)
-            .collection(_imagesSubcollection)
-            .snapshots(),
+      body: StreamBuilder<List<QueryDocumentSnapshot>>(
+        stream: _getAllImagesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
+            print('StreamBuilder error: ${snapshot.error}');
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            print('No data or empty snapshot');
             return const Center(child: Text('No photos available'));
           }
 
@@ -555,12 +216,13 @@ class _UserDashboardState extends State<UserDashboard> {
               ? const Center(child: Text('Loading user data...'))
               : ListView.builder(
                   padding: const EdgeInsets.all(10),
-                  itemCount: snapshot.data!.docs.length,
+                  itemCount: snapshot.data!.length,
                   itemBuilder: (context, index) {
-                    final photo = snapshot.data!.docs[index].data()
-                        as Map<String, dynamic>;
-                    final String photoId = snapshot.data!.docs[index].id;
+                    final photo =
+                        snapshot.data![index].data() as Map<String, dynamic>;
+                    final String photoId = snapshot.data![index].id;
                     final String photoUrl = photo['image_url'] ?? '';
+                    print('Loading image: $photoUrl'); // Debug URL
 
                     // Create a unique key for each photo
                     if (!_photoKeys.containsKey(photoId)) {
@@ -590,9 +252,9 @@ class _UserDashboardState extends State<UserDashboard> {
                                   children: [
                                     Column(
                                       children: [
-                                        // Photo
+                                        // Main Photo
                                         AspectRatio(
-                                          aspectRatio: 4 / 3,
+                                          aspectRatio: 5 / 6,
                                           child: CachedNetworkImage(
                                             imageUrl: photoUrl,
                                             fit: BoxFit.cover,
@@ -601,41 +263,46 @@ class _UserDashboardState extends State<UserDashboard> {
                                                 const Center(
                                                     child:
                                                         CircularProgressIndicator()),
-                                            errorWidget:
-                                                (context, url, error) =>
-                                                    const Icon(Icons.error),
+                                            errorWidget: (context, url, error) {
+                                              print(
+                                                  'Image load error for $url: $error');
+                                              return const Icon(Icons.error);
+                                            },
                                           ),
                                         ),
-                                        // User data footer
+                                        // User data and logo row
                                         Container(
                                           width: double.infinity,
                                           color: backgroundColor,
                                           padding: const EdgeInsets.all(12.0),
-                                          child: Column(
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                                CrossAxisAlignment.center,
                                             children: [
-                                              Row(
-                                                children: [
-                                                  CircleAvatar(
-                                                    radius: 20,
-                                                    backgroundImage: userData![
-                                                                'userImage'] !=
-                                                            null
-                                                        ? NetworkImage(
-                                                            userData![
-                                                                'userImage'])
-                                                        : null,
-                                                    child: userData![
-                                                                'userImage'] ==
-                                                            null
-                                                        ? const Icon(
-                                                            Icons.person,
-                                                            size: 20)
-                                                        : null,
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Column(
+                                              // User Image
+                                              CircleAvatar(
+                                                radius: 30,
+                                                backgroundImage: userData![
+                                                            'userImage'] !=
+                                                        null
+                                                    ? NetworkImage(
+                                                        userData!['userImage'])
+                                                    : null,
+                                                child: userData!['userImage'] ==
+                                                        null
+                                                    ? const Icon(Icons.person,
+                                                        size: 30)
+                                                    : null,
+                                              ),
+                                              // User Details
+                                              Expanded(
+                                                child: Padding(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 12.0),
+                                                  child: Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
                                                             .start,
@@ -660,58 +327,84 @@ class _UserDashboardState extends State<UserDashboard> {
                                                           color: Colors.white70,
                                                         ),
                                                       ),
+                                                      const SizedBox(height: 4),
+                                                      Row(
+                                                        children: [
+                                                          const Icon(
+                                                              Icons.email,
+                                                              size: 16,
+                                                              color: Colors
+                                                                  .white70),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Expanded(
+                                                            child: Text(
+                                                              userData![
+                                                                      'email'] ??
+                                                                  '',
+                                                              style: const TextStyle(
+                                                                  fontSize: 14,
+                                                                  color: Colors
+                                                                      .white),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      if (userData!['phone1'] !=
+                                                          null)
+                                                        Row(
+                                                          children: [
+                                                            const Icon(
+                                                                Icons.phone,
+                                                                size: 16,
+                                                                color: Colors
+                                                                    .white70),
+                                                            const SizedBox(
+                                                                width: 4),
+                                                            Text(
+                                                              userData![
+                                                                  'phone1'],
+                                                              style: const TextStyle(
+                                                                  fontSize: 14,
+                                                                  color: Colors
+                                                                      .white),
+                                                            ),
+                                                          ],
+                                                        ),
                                                     ],
                                                   ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.email,
-                                                      size: 16,
-                                                      color: Colors.white70),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    userData!['email'] ?? '',
-                                                    style: const TextStyle(
-                                                        fontSize: 14,
-                                                        color: Colors.white),
-                                                  ),
-                                                ],
-                                              ),
-                                              if (userData!['phone1'] != null)
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.phone,
-                                                        size: 16,
-                                                        color: Colors.white70),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      userData!['phone1'],
-                                                      style: const TextStyle(
-                                                          fontSize: 14,
-                                                          color: Colors.white),
-                                                    ),
-                                                  ],
                                                 ),
-                                              const SizedBox(height: 8),
+                                              ),
                                               // Company Logo
                                               if (userData!['companyLogo'] !=
                                                       null &&
                                                   userData!['companyLogo']
                                                       .isNotEmpty)
                                                 SizedBox(
-                                                  height: 40,
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: userData![
-                                                        'companyLogo'],
+                                                  width: 80,
+                                                  height: 80,
+                                                  child: Image.network(
+                                                    userData!['companyLogo'],
                                                     fit: BoxFit.contain,
-                                                    placeholder: (context,
-                                                            url) =>
-                                                        const CircularProgressIndicator(),
-                                                    errorWidget: (context, url,
-                                                            error) =>
-                                                        const Icon(Icons.error),
+                                                    errorBuilder: (context,
+                                                        error, stackTrace) {
+                                                      print(
+                                                          'Logo load error: $error');
+                                                      return const Icon(
+                                                          Icons.error);
+                                                    },
+                                                    loadingBuilder: (context,
+                                                        child,
+                                                        loadingProgress) {
+                                                      if (loadingProgress ==
+                                                          null) return child;
+                                                      return const Center(
+                                                          child:
+                                                              CircularProgressIndicator());
+                                                    },
                                                   ),
                                                 ),
                                             ],

@@ -45,6 +45,7 @@ dependencies:
   flutter_image_gallery_saver: ^0.0.2
   jiffy: ^6.4.3
   palette_generator: ^0.3.3+6
+  async: ^2.11.0
 
 
 
