@@ -252,24 +252,52 @@ class _UserDashboardState extends State<UserDashboard> {
                                   children: [
                                     Column(
                                       children: [
-                                        // Main Photo
+                                        // Main Photo with fade effect
                                         AspectRatio(
                                           aspectRatio: 5 / 6,
-                                          child: CachedNetworkImage(
-                                            imageUrl: photoUrl,
-                                            fit: BoxFit.cover,
-                                            width: double.infinity,
-                                            placeholder: (context, url) =>
-                                                const Center(
-                                                    child:
-                                                        CircularProgressIndicator()),
-                                            errorWidget: (context, url, error) {
-                                              print(
-                                                  'Image load error for $url: $error');
-                                              return const Icon(Icons.error);
-                                            },
+                                          child: Stack(
+                                            children: [
+                                              CachedNetworkImage(
+                                                imageUrl: photoUrl,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                placeholder: (context, url) =>
+                                                    const Center(
+                                                        child:
+                                                            CircularProgressIndicator()),
+                                                errorWidget:
+                                                    (context, url, error) {
+                                                  print(
+                                                      'Image load error for $url: $error');
+                                                  return const Icon(
+                                                      Icons.error);
+                                                },
+                                              ),
+                                              // Fade effect at bottom
+                                              Positioned(
+                                                bottom: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: 30,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin:
+                                                          Alignment.topCenter,
+                                                      end: Alignment
+                                                          .bottomCenter,
+                                                      colors: [
+                                                        Colors.transparent,
+                                                        backgroundColor,
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+
                                         // User data and logo row
                                         Container(
                                           width: double.infinity,
@@ -296,6 +324,7 @@ class _UserDashboardState extends State<UserDashboard> {
                                                         size: 30)
                                                     : null,
                                               ),
+
                                               // User Details
                                               Expanded(
                                                 child: Padding(
@@ -378,6 +407,7 @@ class _UserDashboardState extends State<UserDashboard> {
                                                   ),
                                                 ),
                                               ),
+
                                               // Company Logo
                                               if (userData!['companyLogo'] !=
                                                       null &&
@@ -412,6 +442,7 @@ class _UserDashboardState extends State<UserDashboard> {
                                         ),
                                       ],
                                     ),
+
                                     // Watermark
                                     Positioned.fill(
                                       child: CustomPaint(
@@ -421,6 +452,7 @@ class _UserDashboardState extends State<UserDashboard> {
                                   ],
                                 ),
                               ),
+
                               // Download button
                               Padding(
                                 padding: const EdgeInsets.all(8.0),
