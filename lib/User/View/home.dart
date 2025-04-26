@@ -21,13 +21,16 @@ class _UserDashboardState extends State<UserDashboard> {
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
   Map<String, dynamic>? userData;
 
-  // Map to store RepaintBoundary keys and dominant colors for each photo
+  // Cached maps for performance
   final Map<String, GlobalKey> _photoKeys = {};
   final Map<String, Color> _dominantColors = {};
 
-  // Constants for Firestore collections
-  final String _adminImagesCollection = 'admin_images';
-  final String _imagesSubcollection = 'images';
+  // Constants
+  static const String adminImagesCollection = 'admin_images';
+  static const String imagesSubcollection = 'images';
+  static const double fadeHeight = 100.0;
+  static const int maxColorCount = 10;
+  static const double pixelRatio = 3.0;
 
   @override
   void initState() {
@@ -36,90 +39,273 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 
   Future<void> _getUserData() async {
-    if (userId != null) {
-      final doc = await _firestore.collection('user_profile').doc(userId).get();
-      if (doc.exists) {
-        setState(() {
-          userData = doc.data();
-        });
-      }
+    if (userId == null) return;
+    final doc = await _firestore.collection('user_profile').doc(userId).get();
+    if (doc.exists) {
+      setState(() => userData = doc.data());
     }
   }
 
-  // Extract dominant color from an image
   Future<Color> _getDominantColor(String imageUrl) async {
+    if (_dominantColors.containsKey(imageUrl)) {
+      return _dominantColors[imageUrl]!;
+    }
     try {
-      final imageProvider = NetworkImage(imageUrl);
-      final PaletteGenerator paletteGenerator =
-          await PaletteGenerator.fromImageProvider(
-        imageProvider,
-        size: const Size(100, 100), // Optimize for performance
-        maximumColorCount: 10,
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        NetworkImage(imageUrl),
+        size: const Size(100, 100),
+        maximumColorCount: maxColorCount,
       );
-      return paletteGenerator.dominantColor?.color ?? Colors.white;
+      final dominantColor =
+          paletteGenerator.dominantColor?.color ?? Colors.white;
+      _dominantColors[imageUrl] = dominantColor;
+      return dominantColor;
     } catch (e) {
       print('Error getting dominant color for $imageUrl: $e');
-      return Colors.white; // Fallback color
+      return Colors.white;
     }
   }
 
   Future<void> _captureAndSaveImage(String photoId, String photoUrl) async {
-    try {
-      // Request storage permission
-      var status = await Permission.storage.request();
-      if (!status.isGranted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Storage permission denied')),
-        );
-        return;
-      }
-
-      final key = _photoKeys[photoId];
-      if (key == null || key.currentContext == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cannot capture image at this time')),
-        );
-        return;
-      }
-
-      // Show loading indicator
+    final status = await Permission.storage.request();
+    if (!status.isGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Processing image...')),
+        const SnackBar(content: Text('Storage permission denied')),
       );
-
-      // Convert widget to image
-      RenderRepaintBoundary boundary =
-          key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      Uint8List pngBytes = byteData!.buffer.asUint8List();
-
-      // Save image to gallery
-      await FlutterImageGallerySaver.saveImage(pngBytes);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image saved to gallery!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving image: $e')),
-      );
+      return;
     }
+
+    final key = _photoKeys[photoId];
+    if (key == null || key.currentContext == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot capture image at this time')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Processing image...')),
+    );
+
+    final boundary =
+        key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final pngBytes = byteData!.buffer.asUint8List();
+
+    await FlutterImageGallerySaver.saveImage(pngBytes);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Image saved to gallery!')),
+    );
   }
 
-  // Stream to fetch images from all images subcollections using collection group query
   Stream<List<QueryDocumentSnapshot>> _getAllImagesStream() {
     return _firestore
-        .collectionGroup(_imagesSubcollection)
+        .collectionGroup(imagesSubcollection)
         .snapshots()
-        .map((snapshot) {
-      print('Fetched ${snapshot.docs.length} documents');
-      for (var doc in snapshot.docs) {
-        print('Doc ID: ${doc.id}, Data: ${doc.data()}');
-      }
-      return snapshot.docs;
-    });
+        .map((snapshot) => snapshot.docs);
+  }
+
+  Widget _buildPhotoCard(
+      String photoId, String photoUrl, Color backgroundColor) {
+    if (!_photoKeys.containsKey(photoId)) {
+      _photoKeys[photoId] = GlobalKey();
+    }
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        children: [
+          RepaintBoundary(
+            key: _photoKeys[photoId],
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    // Main Photo with improved bottom fade
+                    AspectRatio(
+                      aspectRatio: 5 / 6,
+                      child: Stack(
+                        children: [
+                          // Image
+                          CachedNetworkImage(
+                            imageUrl: photoUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            errorWidget: (context, url, error) {
+                              print('Image load error for $url: $error');
+                              return const Icon(Icons.error);
+                            },
+                          ),
+                          // Enhanced gradient overlay with smoother transition
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: fadeHeight *
+                                2.0, // Increased height for smoother fade
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    backgroundColor.withOpacity(
+                                        0.1), // Start with very light opacity
+                                    backgroundColor.withOpacity(0.3),
+                                    backgroundColor.withOpacity(0.5),
+                                    backgroundColor.withOpacity(0.7),
+                                    backgroundColor.withOpacity(0.9),
+                                    backgroundColor,
+                                  ],
+                                  stops: const [
+                                    0.0,
+                                    0.2,
+                                    0.4,
+                                    0.6,
+                                    0.8,
+                                    0.9,
+                                    1.0
+                                  ], // More gradient stops for smoother transition
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // User info section with improved top gradient
+                    if (userData != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12.0),
+                        decoration: BoxDecoration(
+                          color: backgroundColor,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              backgroundColor, // Start with the solid color matching the fade from above
+                              backgroundColor, // Maintain consistent color through the container
+                              backgroundColor.withOpacity(
+                                  0.95), // Very subtle fade for depth
+                            ],
+                            stops: const [0.0, 0.7, 1.0],
+                          ),
+                        ),
+                        child: Row(
+                          // Rest of your row content remains the same
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // ... existing code for CircleAvatar
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundImage: userData!['userImage'] != null
+                                  ? NetworkImage(userData!['userImage'])
+                                  : null,
+                              child: userData!['userImage'] == null
+                                  ? const Icon(Icons.person, size: 30)
+                                  : null,
+                            ),
+                            // ... existing code for user details
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12.0),
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        userData!['firstName'] ?? 'User',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        userData!['designation'] ??
+                                            'No designation',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.email,
+                                              size: 16, color: Colors.white70),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              userData!['email'] ?? '',
+                                              style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.white),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ]),
+                              ),
+                            ),
+                            // ... existing code for company logo
+                            if (userData!['companyLogo'] != null &&
+                                userData!['companyLogo'].isNotEmpty)
+                              SizedBox(
+                                width: 80,
+                                height: 80,
+                                child: Image.network(
+                                  userData!['companyLogo'],
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print('Logo load error: $error');
+                                    return const Icon(Icons.error);
+                                  },
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(
+                                        child: CircularProgressIndicator());
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: WatermarkPainter(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.download),
+              label: const Text('Download Merged Image'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 40),
+              ),
+              onPressed: () => _captureAndSaveImage(photoId, photoUrl),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -201,17 +387,13 @@ class _UserDashboardState extends State<UserDashboard> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
             print('StreamBuilder error: ${snapshot.error}');
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            print('No data or empty snapshot');
             return const Center(child: Text('No photos available'));
           }
-
           return userData == null
               ? const Center(child: Text('Loading user data...'))
               : ListView.builder(
@@ -220,16 +402,8 @@ class _UserDashboardState extends State<UserDashboard> {
                   itemBuilder: (context, index) {
                     final photo =
                         snapshot.data![index].data() as Map<String, dynamic>;
-                    final String photoId = snapshot.data![index].id;
-                    final String photoUrl = photo['image_url'] ?? '';
-                    print('Loading image: $photoUrl'); // Debug URL
-
-                    // Create a unique key for each photo
-                    if (!_photoKeys.containsKey(photoId)) {
-                      _photoKeys[photoId] = GlobalKey();
-                    }
-
-                    // Get dominant color for the photo
+                    final photoId = snapshot.data![index].id;
+                    final photoUrl = photo['image_url'] ?? '';
                     return FutureBuilder<Color>(
                       future: _getDominantColor(photoUrl),
                       builder: (context, colorSnapshot) {
@@ -237,239 +411,8 @@ class _UserDashboardState extends State<UserDashboard> {
                           return const Center(
                               child: CircularProgressIndicator());
                         }
-
-                        final backgroundColor = colorSnapshot.data!;
-
-                        return Card(
-                          elevation: 4,
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: Column(
-                            children: [
-                              // The content to be captured
-                              RepaintBoundary(
-                                key: _photoKeys[photoId],
-                                child: Stack(
-                                  children: [
-                                    Column(
-                                      children: [
-                                        // Main Photo with fade effect
-                                        AspectRatio(
-                                          aspectRatio: 5 / 6,
-                                          child: Stack(
-                                            children: [
-                                              CachedNetworkImage(
-                                                imageUrl: photoUrl,
-                                                fit: BoxFit.cover,
-                                                width: double.infinity,
-                                                placeholder: (context, url) =>
-                                                    const Center(
-                                                        child:
-                                                            CircularProgressIndicator()),
-                                                errorWidget:
-                                                    (context, url, error) {
-                                                  print(
-                                                      'Image load error for $url: $error');
-                                                  return const Icon(
-                                                      Icons.error);
-                                                },
-                                              ),
-                                              // Fade effect at bottom
-                                              Positioned(
-                                                bottom: 0,
-                                                left: 0,
-                                                right: 0,
-                                                height: 30,
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      begin:
-                                                          Alignment.topCenter,
-                                                      end: Alignment
-                                                          .bottomCenter,
-                                                      colors: [
-                                                        Colors.transparent,
-                                                        backgroundColor,
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        // User data and logo row
-                                        Container(
-                                          width: double.infinity,
-                                          color: backgroundColor,
-                                          padding: const EdgeInsets.all(12.0),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              // User Image
-                                              CircleAvatar(
-                                                radius: 30,
-                                                backgroundImage: userData![
-                                                            'userImage'] !=
-                                                        null
-                                                    ? NetworkImage(
-                                                        userData!['userImage'])
-                                                    : null,
-                                                child: userData!['userImage'] ==
-                                                        null
-                                                    ? const Icon(Icons.person,
-                                                        size: 30)
-                                                    : null,
-                                              ),
-
-                                              // User Details
-                                              Expanded(
-                                                child: Padding(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 12.0),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        userData![
-                                                                'firstName'] ??
-                                                            'User',
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 18,
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        userData![
-                                                                'designation'] ??
-                                                            'No designation',
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          color: Colors.white70,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Row(
-                                                        children: [
-                                                          const Icon(
-                                                              Icons.email,
-                                                              size: 16,
-                                                              color: Colors
-                                                                  .white70),
-                                                          const SizedBox(
-                                                              width: 4),
-                                                          Expanded(
-                                                            child: Text(
-                                                              userData![
-                                                                      'email'] ??
-                                                                  '',
-                                                              style: const TextStyle(
-                                                                  fontSize: 14,
-                                                                  color: Colors
-                                                                      .white),
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      if (userData!['phone1'] !=
-                                                          null)
-                                                        Row(
-                                                          children: [
-                                                            const Icon(
-                                                                Icons.phone,
-                                                                size: 16,
-                                                                color: Colors
-                                                                    .white70),
-                                                            const SizedBox(
-                                                                width: 4),
-                                                            Text(
-                                                              userData![
-                                                                  'phone1'],
-                                                              style: const TextStyle(
-                                                                  fontSize: 14,
-                                                                  color: Colors
-                                                                      .white),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-
-                                              // Company Logo
-                                              if (userData!['companyLogo'] !=
-                                                      null &&
-                                                  userData!['companyLogo']
-                                                      .isNotEmpty)
-                                                SizedBox(
-                                                  width: 80,
-                                                  height: 80,
-                                                  child: Image.network(
-                                                    userData!['companyLogo'],
-                                                    fit: BoxFit.contain,
-                                                    errorBuilder: (context,
-                                                        error, stackTrace) {
-                                                      print(
-                                                          'Logo load error: $error');
-                                                      return const Icon(
-                                                          Icons.error);
-                                                    },
-                                                    loadingBuilder: (context,
-                                                        child,
-                                                        loadingProgress) {
-                                                      if (loadingProgress ==
-                                                          null) return child;
-                                                      return const Center(
-                                                          child:
-                                                              CircularProgressIndicator());
-                                                    },
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    // Watermark
-                                    Positioned.fill(
-                                      child: CustomPaint(
-                                        painter: WatermarkPainter(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Download button
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.download),
-                                  label: const Text('Download Merged Image'),
-                                  style: ElevatedButton.styleFrom(
-                                    minimumSize:
-                                        const Size(double.infinity, 40),
-                                  ),
-                                  onPressed: () =>
-                                      _captureAndSaveImage(photoId, photoUrl),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                        return _buildPhotoCard(
+                            photoId, photoUrl, colorSnapshot.data!);
                       },
                     );
                   },
@@ -480,7 +423,7 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 }
 
-// Custom painter for watermark
+// / Custom painter for watermark
 class WatermarkPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
