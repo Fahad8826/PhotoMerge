@@ -6,7 +6,10 @@ import 'package:photomerge/Admin/create_admin.dart';
 import 'package:photomerge/Authentication/authservice.dart';
 import 'package:photomerge/Authentication/signin.dart';
 import 'package:photomerge/Authentication/signup.dart';
+import 'package:photomerge/User/View/categorey.dart';
+import 'package:photomerge/User/View/categorylist.dart';
 import 'package:photomerge/User/View/home.dart';
+import 'package:photomerge/User/View/listimages.dart';
 import 'package:photomerge/User/View/profile.dart';
 
 void main() async {
@@ -33,7 +36,9 @@ class MyApp extends StatelessWidget {
         '/admin': (context) => AdminDashboard(),
         '/profile': (context) => ProfilePage(),
         '/createadmin': (context) => create_admin(),
-        '/craeteimage': (context) => AddImagePage()
+        '/craeteimage': (context) => AddImagePage(),
+        '/listimages': (context) => Listimages(),
+        '/Category': (context) => CategoryListPage(),
       },
     );
   }

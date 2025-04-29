@@ -21,12 +21,7 @@ version: 1.0.0+1
 environment:
   sdk: ^3.6.1
 
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
+
 dependencies:
   flutter:
     sdk: flutter
@@ -46,6 +41,8 @@ dependencies:
   jiffy: ^6.4.3
   palette_generator: ^0.3.3+6
   async: ^2.11.0
+  image_cropper: ^9.1.0
+  firebase_storage: ^12.4.5
 
 
 
@@ -72,9 +69,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/jins9.jpg
-    - assets/jins10.jpg
+  # assets:
+    
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
