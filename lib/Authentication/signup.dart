@@ -20,6 +20,7 @@ class _SignupPageState extends State<SignupPage> {
       _isLoading = true;
       _error = null;
     });
+
     try {
       UserCredential userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -33,6 +34,11 @@ class _SignupPageState extends State<SignupPage> {
           .set({
         'email': _emailController.text.trim(),
         'role': _selectedRole,
+        'isActive': true,
+        'isSubscribed': false,
+        'freeDownloadUsed': false,
+        'subscriptionPlan': '',
+        'subscriptionExpiry': null,
       });
 
       Navigator.pushNamedAndRemoveUntil(
@@ -72,7 +78,9 @@ class _SignupPageState extends State<SignupPage> {
               ),
               DropdownButton<String>(
                 value: _selectedRole,
-                items: ['user', 'admin']
+                items: [
+                  'user',
+                ]
                     .map((role) => DropdownMenuItem(
                           value: role,
                           child: Text(role),

@@ -1,20 +1,36 @@
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:photomerge/Admin/add_posters.dart';
 import 'package:photomerge/Admin/adminhome.dart';
 import 'package:photomerge/Admin/create_admin.dart';
+import 'package:photomerge/Admin/listusers.dart';
+import 'package:photomerge/Admin/subscriptionmanage.dart';
 import 'package:photomerge/Authentication/authservice.dart';
 import 'package:photomerge/Authentication/signin.dart';
 import 'package:photomerge/Authentication/signup.dart';
-import 'package:photomerge/User/View/categorey.dart';
 import 'package:photomerge/User/View/categorylist.dart';
 import 'package:photomerge/User/View/home.dart';
 import 'package:photomerge/User/View/listimages.dart';
 import 'package:photomerge/User/View/profile.dart';
+import 'package:photomerge/User/View/usersubscription.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await AwesomeNotifications().initialize(
+    null, // Default icon
+    [
+      NotificationChannel(
+        channelKey: 'basic_channel',
+        channelName: 'Basic Notifications',
+        channelDescription: 'Notification channel for basic notifications',
+        defaultColor: Colors.blue,
+        ledColor: Colors.white,
+        importance: NotificationImportance.High,
+      ),
+    ],
+  );
   runApp(MyApp());
 }
 
@@ -39,6 +55,9 @@ class MyApp extends StatelessWidget {
         '/craeteimage': (context) => AddImagePage(),
         '/listimages': (context) => Listimages(),
         '/Category': (context) => CategoryListPage(),
+        '/listusers': (context) => UserListPage(),
+        '/submanage': (context) => AdminSubscriptionPage(),
+        '/usersubscription': (context) => UserSubscriptionPage(),
       },
     );
   }

@@ -96,7 +96,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       Navigator.pushNamed(context, '/listimages');
                     },
                   ),
-                   ListTile(
+                  ListTile(
                     leading: const Icon(
                       Icons.image,
                       color: Colors.grey, // Consistent icon color
@@ -108,6 +108,20 @@ class _UserDashboardState extends State<UserDashboard> {
                     onTap: () {
                       Navigator.pop(context); // Close the drawer
                       Navigator.pushNamed(context, '/Category');
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.subscriptions_rounded,
+                      color: Colors.grey,
+                    ),
+                    title: const Text(
+                      'my subscription',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(context); // Close the drawer
+                      Navigator.pushNamed(context, '/usersubscription');
                     },
                   ),
                   // Log Out Tile
