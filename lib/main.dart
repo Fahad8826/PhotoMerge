@@ -2,6 +2,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:photomerge/Admin/add_posters.dart';
+import 'package:photomerge/Admin/addcarousel.dart';
 import 'package:photomerge/Admin/adminhome.dart';
 import 'package:photomerge/Admin/create_admin.dart';
 import 'package:photomerge/Admin/listusers.dart';
@@ -58,6 +59,7 @@ class MyApp extends StatelessWidget {
         '/listusers': (context) => UserListPage(),
         '/submanage': (context) => AdminSubscriptionPage(),
         '/usersubscription': (context) => UserSubscriptionPage(),
+        '/carousel': (context) => AdminImageUploadPage(),
       },
     );
   }

@@ -46,6 +46,7 @@ dependencies:
   url_launcher: ^6.3.1
   awesome_notifications: ^0.10.1
   device_info_plus: ^11.3.0
+  carousel_slider: ^5.0.0
 
 
 

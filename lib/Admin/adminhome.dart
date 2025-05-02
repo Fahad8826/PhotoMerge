@@ -162,6 +162,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Navigator.pushNamed(context, '/submanage');
                     },
                   ),
+                  _buildActionCard(
+                    context,
+                    icon: Icons.money_rounded,
+                    title: 'carousel',
+                    description: 'Manage ',
+                    onTap: () {
+                      // Placeholder for Add Admin functionality
+                      // Assuming '/createadmin' is defined elsewhere
+                      Navigator.pushNamed(context, '/carousel');
+                    },
+                  ),
                 ],
               ),
             ),
