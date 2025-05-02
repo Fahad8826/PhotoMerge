@@ -59,7 +59,7 @@ class MyApp extends StatelessWidget {
         '/listusers': (context) => UserListPage(),
         '/submanage': (context) => AdminSubscriptionPage(),
         '/usersubscription': (context) => UserSubscriptionPage(),
-        '/carousel': (context) => AdminImageUploadPage(),
+        '/carousel':(context)=> AdminImageUploadPage(),
       },
     );
   }
