@@ -422,9 +422,8 @@ class _MycategoryState extends State<Mycategory> {
                 'You have used your free download. Please choose a subscription plan to continue downloading images.',
               ),
               const SizedBox(height: 16),
-              _buildPlanOption('Basic Plan', 5),
-              _buildPlanOption('Standard Plan', 10),
-              _buildPlanOption('Premium Plan', 20),
+              _buildPlanOption('Standard Plan', 300),
+              _buildPlanOption1('Premium Plan', 1000),
             ],
           ),
         ),
@@ -443,7 +442,19 @@ class _MycategoryState extends State<Mycategory> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         title: Text(planName),
-        subtitle: Text('\$$price/month'),
+        subtitle: Text('\₹$price/month'),
+        trailing: const Icon(Icons.arrow_forward),
+        onTap: () => _redirectToWhatsApp(planName, price),
+      ),
+    );
+  }
+
+  Widget _buildPlanOption1(String planName, int price) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        title: Text(planName),
+        subtitle: Text('\₹$price/year'),
         trailing: const Icon(Icons.arrow_forward),
         onTap: () => _redirectToWhatsApp(planName, price),
       ),
@@ -454,7 +465,7 @@ class _MycategoryState extends State<Mycategory> {
     // Ensure the phone number includes the country code (e.g., +91 for India)
     const adminWhatsAppNumber = '+919567725398'; // With country code
     final message =
-        'Hello, I want to subscribe to the $plan (\$$price/month) for the PhotoMerge app.';
+        'Hello, I want to subscribe to the $plan (\₹$price/month) for the PhotoMerge app.';
     final encodedMessage = Uri.encodeComponent(message);
 
     // Create the WhatsApp URL
