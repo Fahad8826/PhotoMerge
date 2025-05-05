@@ -54,12 +54,12 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => ProfilePage(),
         '/createadmin': (context) => create_admin(),
         '/craeteimage': (context) => AddImagePage(),
-        '/listimages': (context) => Listimages(),
+        '/listimages': (context) => ListImages(),
         '/Category': (context) => CategoryListPage(),
         '/listusers': (context) => UserListPage(),
         '/submanage': (context) => AdminSubscriptionPage(),
         '/usersubscription': (context) => UserSubscriptionPage(),
-        '/carousel':(context)=> AdminImageUploadPage(),
+        '/carousel': (context) => AdminImageUploadPage(),
       },
     );
   }

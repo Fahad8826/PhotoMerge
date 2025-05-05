@@ -112,8 +112,8 @@ class _UserDashboardState extends State<UserDashboard> {
         ),
       ),
       child: Scaffold(
-        extendBodyBehindAppBar: true,
         appBar: AppBar(
+          backgroundColor: cardColor,
           actions: [
             IconButton(
               icon: const Icon(Icons.search),
