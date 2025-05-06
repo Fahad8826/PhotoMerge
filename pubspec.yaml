@@ -48,6 +48,7 @@ dependencies:
   device_info_plus: ^11.3.0
   carousel_slider: ^5.0.0
   shimmer: ^3.0.0
+  share_plus: ^11.0.0
 
 
 

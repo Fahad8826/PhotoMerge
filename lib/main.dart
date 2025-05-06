@@ -10,10 +10,12 @@ import 'package:photomerge/Admin/subscriptionmanage.dart';
 import 'package:photomerge/Authentication/authservice.dart';
 import 'package:photomerge/Authentication/signin.dart';
 import 'package:photomerge/Authentication/signup.dart';
+import 'package:photomerge/User/View/about.dart';
 import 'package:photomerge/User/View/categorylist.dart';
 import 'package:photomerge/User/View/home.dart';
 import 'package:photomerge/User/View/listimages.dart';
 import 'package:photomerge/User/View/profile.dart';
+import 'package:photomerge/User/View/support.dart';
 import 'package:photomerge/User/View/usersubscription.dart';
 
 void main() async {
@@ -60,6 +62,8 @@ class MyApp extends StatelessWidget {
         '/submanage': (context) => AdminSubscriptionPage(),
         '/usersubscription': (context) => UserSubscriptionPage(),
         '/carousel': (context) => AdminImageUploadPage(),
+        '/about': (context) => AboutPage(),
+        '/support': (context) => SupportPage(),
       },
     );
   }

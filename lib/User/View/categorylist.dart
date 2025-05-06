@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:photomerge/User/View/categorey.dart';
-// Updated import
 
 class CategoryListPage extends StatefulWidget {
   const CategoryListPage({Key? key}) : super(key: key);
@@ -48,7 +47,7 @@ class _CategoryListPageState extends State<CategoryListPage> {
     } catch (e) {
       print('Error fetching categories: $e');
       setState(() {
-        _errorMessage = 'Failed to load categories: $e';
+        _errorMessage = 'Failed to load categories';
         _isLoading = false;
       });
     }
@@ -58,89 +57,129 @@ class _CategoryListPageState extends State<CategoryListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Categories'),
+        title: const Text(
+          'Categories',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _fetchCategories,
+        backgroundColor: const Color(0xFF4CAF50),
+        child: const Icon(Icons.refresh, color: Colors.white),
+      ),
+      backgroundColor: Colors.white,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF4CAF50)))
           : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_errorMessage!, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _fetchCategories,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
+              ? _buildErrorWidget()
               : _categories.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.category_outlined,
-                              size: 64, color: Colors.grey),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'No categories available',
-                            style: TextStyle(fontSize: 18),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _fetchCategories,
-                            child: const Text('Refresh'),
-                          ),
-                        ],
+                  ? _buildEmptyWidget()
+                  : _buildCategoryList(),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Color(0xFF4CAF50)),
+          const SizedBox(height: 12),
+          const Text(
+            'Failed to load categories',
+            style: TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: _fetchCategories,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4CAF50),
+            ),
+            child: const Text(
+              'Retry',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.category_outlined,
+              size: 48, color: Color(0xFF4CAF50)),
+          const SizedBox(height: 12),
+          const Text(
+            'No categories available',
+            style: TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: _fetchCategories,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4CAF50),
+            ),
+            child: const Text(
+              'Refresh',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _categories.length,
+      itemBuilder: (context, index) {
+        final category = _categories[index];
+        return Card(
+          elevation: 1,
+          margin: const EdgeInsets.only(bottom: 8),
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => Mycategory(categoryFilter: category),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.photo_library,
+                      size: 24, color: Color(0xFF4CAF50)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      category,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final category = _categories[index];
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: InkWell(
-                            onTap: () {
-                              // Navigate to Mycategory with the selected category
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      Mycategory(categoryFilter: category),
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.photo_library, size: 28),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      category,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(Icons.arrow_forward_ios),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
                     ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 16, color: Color(0xFF4CAF50)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

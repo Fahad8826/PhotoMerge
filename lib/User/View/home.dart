@@ -215,7 +215,7 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
             _buildDrawerItem(
               icon: Icons.account_circle_outlined,
-              title: 'Edit Profile',
+              title: 'My Profile',
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/profile');
@@ -251,7 +251,7 @@ class _UserDashboardState extends State<UserDashboard> {
               title: 'About',
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement About page navigation
+                Navigator.pushNamed(context, '/about');
               },
             ),
             _buildDrawerItem(
@@ -259,7 +259,7 @@ class _UserDashboardState extends State<UserDashboard> {
               title: 'Help & Support',
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement Help page navigation
+                Navigator.pushNamed(context, '/support');
               },
             ),
             const Divider(),

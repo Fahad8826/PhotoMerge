@@ -16,7 +16,7 @@
 //   State<ListImages> createState() => _ListImagesState();
 // }
 
-// class _ListImagesState extends State<ListImages> {
+// class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
 //   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 //   final String? userId = FirebaseAuth.instance.currentUser?.uid;
 //   Map<String, dynamic>? userData;
@@ -24,6 +24,7 @@
 //   // Cached maps for performance
 //   final Map<String, GlobalKey> _photoKeys = {};
 //   final Map<String, Color> _dominantColors = {};
+//   final Map<String, AnimationController> _animationControllers = {};
 
 //   // Pagination variables
 //   static const int _pageSize = 10;
@@ -46,6 +47,14 @@
 //     super.initState();
 //     _getUserData();
 //     _loadInitialImages();
+//   }
+
+//   @override
+//   void dispose() {
+//     _animationControllers.forEach((key, controller) {
+//       controller.dispose();
+//     });
+//     super.dispose();
 //   }
 
 //   Future<void> _getUserData() async {
@@ -77,6 +86,10 @@
 //         _hasMoreData = snapshot.docs.length == _pageSize;
 //         _isLoadingMore = false;
 //       });
+
+//       for (var doc in snapshot.docs) {
+//         _createAnimationController(doc.id);
+//       }
 //     } catch (e) {
 //       print('Error loading images: $e');
 //       setState(() => _isLoadingMore = false);
@@ -101,9 +114,29 @@
 //         _hasMoreData = snapshot.docs.length == _pageSize;
 //         _isLoadingMore = false;
 //       });
+
+//       for (var doc in snapshot.docs) {
+//         _createAnimationController(doc.id);
+//       }
 //     } catch (e) {
 //       print('Error loading more images: $e');
 //       setState(() => _isLoadingMore = false);
+//     }
+//   }
+
+//   void _createAnimationController(String id) {
+//     if (!_animationControllers.containsKey(id)) {
+//       final controller = AnimationController(
+//         duration: const Duration(milliseconds: 300),
+//         vsync: this,
+//       );
+//       _animationControllers[id] = controller;
+//       Future.delayed(
+//           Duration(milliseconds: 50 * _animationControllers.length % 10), () {
+//         if (mounted && controller.isAnimating != true) {
+//           controller.forward();
+//         }
+//       });
 //     }
 //   }
 
@@ -117,10 +150,14 @@
 //         size: const Size(80, 80),
 //         maximumColorCount: maxColorCount,
 //       );
-//       final dominantColor =
-//           paletteGenerator.dominantColor?.color ?? Colors.grey.shade800;
-//       _dominantColors[imageUrl] = dominantColor;
-//       return dominantColor;
+//       final color = paletteGenerator.vibrantColor?.color ??
+//           paletteGenerator.dominantColor?.color ??
+//           Colors.grey.shade800;
+//       final HSLColor hsl = HSLColor.fromColor(color);
+//       final adjustedColor =
+//           hsl.lightness > 0.7 ? hsl.withLightness(0.6).toColor() : color;
+//       _dominantColors[imageUrl] = adjustedColor;
+//       return adjustedColor;
 //     } catch (e) {
 //       print('Error getting dominant color for $imageUrl: $e');
 //       return Colors.grey.shade800;
@@ -151,15 +188,45 @@
 //     try {
 //       final boundary =
 //           key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+//       // A4 dimensions in pixels at 300 DPI (scaled for performance)
+//       const double a4Width = 2480.0;
+//       const double a4Height = 3508.0;
+
+//       // Capture the content
 //       final image = await boundary.toImage(pixelRatio: pixelRatio);
 //       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-//       final pngBytes = byteData!.buffer.asUint8List();
+//       if (byteData == null) throw Exception('Failed to capture image data');
 
-//       await FlutterImageGallerySaver.saveImage(pngBytes);
+//       final codec =
+//           await ui.instantiateImageCodec(byteData.buffer.asUint8List());
+//       final frameInfo = await codec.getNextFrame();
+
+//       // Create A4 canvas
+//       final recorder = ui.PictureRecorder();
+//       final canvas = Canvas(recorder);
+
+//       // Draw the image to fill the entire A4 page
+//       canvas.drawImageRect(
+//         frameInfo.image,
+//         Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+//         Rect.fromLTWH(0, 0, a4Width, a4Height),
+//         Paint()..filterQuality = FilterQuality.high,
+//       );
+
+//       // Convert to PNG
+//       final picture = recorder.endRecording();
+//       final a4Image = await picture.toImage(a4Width.toInt(), a4Height.toInt());
+//       final a4ByteData =
+//           await a4Image.toByteData(format: ui.ImageByteFormat.png);
+//       final a4PngBytes = a4ByteData!.buffer.asUint8List();
+
+//       // Save the image
+//       await FlutterImageGallerySaver.saveImage(a4PngBytes);
 
 //       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
+//         const SnackBar(
 //           content: Text('Image saved to gallery!'),
+//           behavior: SnackBarBehavior.floating,
 //         ),
 //       );
 //     } catch (e) {
@@ -176,164 +243,211 @@
 //       _photoKeys[photoId] = GlobalKey();
 //     }
 
-//     return Card(
-//       key: ValueKey(photoId),
-//       elevation: 4,
-//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-//       child: Column(
-//         children: [
-//           RepaintBoundary(
-//             key: _photoKeys[photoId],
-//             child: Column(
-//               children: [
-//                 AspectRatio(
-//                   aspectRatio: 4 / 5,
-//                   child: Stack(
-//                     children: [
-//                       CachedNetworkImage(
-//                         imageUrl: photoUrl,
-//                         fit: BoxFit.cover,
-//                         width: double.infinity,
-//                         placeholder: (context, url) => Shimmer.fromColors(
-//                           baseColor: Colors.grey[300]!,
-//                           highlightColor: Colors.grey[100]!,
-//                           child: Container(color: Colors.grey[300]),
-//                         ),
-//                         errorWidget: (context, url, error) {
-//                           print('Image load error for $url: $error');
-//                           return const Icon(Icons.error, size: 48);
-//                         },
-//                       ),
-//                       Positioned.fill(
-//                         child: CustomPaint(
-//                           painter: WatermarkPainter(),
-//                         ),
-//                       ),
-//                       Positioned(
-//                         bottom: 0,
-//                         left: 0,
-//                         right: 0,
-//                         height: fadeHeight,
-//                         child: Container(
-//                           decoration: BoxDecoration(
-//                             gradient: LinearGradient(
-//                               begin: Alignment.topCenter,
-//                               end: Alignment.bottomCenter,
-//                               colors: [
-//                                 Colors.transparent,
-//                                 backgroundColor.withOpacity(0.2),
-//                                 backgroundColor.withOpacity(0.5),
-//                                 backgroundColor.withOpacity(0.8),
-//                                 backgroundColor,
-//                               ],
-//                               stops: const [0.0, 0.3, 0.6, 0.8, 1.0],
-//                             ),
-//                           ),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//                 if (userData != null)
-//                   Container(
-//                     width: double.infinity,
-//                     padding: const EdgeInsets.all(16),
-//                     decoration: BoxDecoration(
-//                       color: backgroundColor,
-//                       borderRadius: const BorderRadius.vertical(
-//                           bottom: Radius.circular(12)),
-//                     ),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       crossAxisAlignment: CrossAxisAlignment.center,
+//     final AnimationController animController = _animationControllers[photoId] ??
+//         AnimationController(duration: Duration.zero, vsync: this)
+//       ..forward();
+//     final Animation<double> fadeAnimation = CurvedAnimation(
+//       parent: animController,
+//       curve: Curves.easeInOut,
+//     );
+
+//     return AnimatedBuilder(
+//       animation: fadeAnimation,
+//       builder: (context, child) {
+//         return Transform.translate(
+//           offset: Offset(0, 20 * (1 - fadeAnimation.value)),
+//           child: Opacity(
+//             opacity: fadeAnimation.value,
+//             child: child,
+//           ),
+//         );
+//       },
+//       child: Card(
+//         key: ValueKey(photoId),
+//         elevation: 4, // Elevation for display only
+//         shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(12)), // Rounded for display
+//         margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+//         child: Column(
+//           children: [
+//             // RepaintBoundary captures the content without rounded corners
+//             RepaintBoundary(
+//               key: _photoKeys[photoId],
+//               child: Column(
+//                 children: [
+//                   // Image section
+//                   AspectRatio(
+//                     aspectRatio: 4 / 5,
+//                     child: Stack(
+//                       fit: StackFit.expand,
 //                       children: [
-//                         CircleAvatar(
-//                           radius: 28,
-//                           backgroundImage: userData!['userImage'] != null
-//                               ? NetworkImage(userData!['userImage'])
-//                               : null,
-//                           child: userData!['userImage'] == null
-//                               ? const Icon(Icons.person, size: 28)
-//                               : null,
+//                         Hero(
+//                           tag: 'photo_$photoId',
+//                           child: CachedNetworkImage(
+//                             imageUrl: photoUrl,
+//                             fit: BoxFit.cover,
+//                             width: double.infinity,
+//                             placeholder: (context, url) => Shimmer.fromColors(
+//                               baseColor: Colors.grey[300]!,
+//                               highlightColor: Colors.grey[100]!,
+//                               child: Container(color: Colors.grey[300]),
+//                             ),
+//                             errorWidget: (context, url, error) {
+//                               print('Image load error for $url: $error');
+//                               return const Icon(Icons.error, size: 48);
+//                             },
+//                           ),
 //                         ),
-//                         Expanded(
-//                           child: Padding(
-//                             padding: const EdgeInsets.symmetric(horizontal: 12),
-//                             child: Column(
-//                               crossAxisAlignment: CrossAxisAlignment.start,
-//                               children: [
-//                                 Text(
-//                                   userData!['firstName'] ?? 'Unknown User',
-//                                   style: const TextStyle(
-//                                     fontWeight: FontWeight.bold,
-//                                     fontSize: 16,
-//                                     color: Colors.white,
-//                                   ),
-//                                 ),
-//                                 Text(
-//                                   userData!['designation'] ?? 'No designation',
-//                                   style: const TextStyle(
-//                                     fontSize: 12,
-//                                     color: Colors.white70,
-//                                   ),
-//                                 ),
-//                                 const SizedBox(height: 4),
-//                                 Row(
-//                                   children: [
-//                                     const Icon(Icons.email,
-//                                         size: 14, color: Colors.white70),
-//                                     const SizedBox(width: 4),
-//                                     Expanded(
-//                                       child: Text(
-//                                         userData!['email'] ?? 'No email',
-//                                         style: const TextStyle(
-//                                           fontSize: 12,
-//                                           color: Colors.white70,
-//                                         ),
-//                                         overflow: TextOverflow.ellipsis,
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ],
+//                         Positioned.fill(
+//                           child: CustomPaint(
+//                             painter: WatermarkPainter(),
+//                           ),
+//                         ),
+//                         Positioned(
+//                           bottom: 0,
+//                           left: 0,
+//                           right: 0,
+//                           height: fadeHeight,
+//                           child: Container(
+//                             decoration: BoxDecoration(
+//                               gradient: LinearGradient(
+//                                 begin: Alignment.topCenter,
+//                                 end: Alignment.bottomCenter,
+//                                 colors: [
+//                                   Colors.transparent,
+//                                   backgroundColor.withOpacity(0.3),
+//                                   backgroundColor.withOpacity(0.6),
+//                                   backgroundColor.withOpacity(0.9),
+//                                   backgroundColor,
+//                                 ],
+//                                 stops: const [0.0, 0.3, 0.6, 0.8, 1.0],
+//                               ),
 //                             ),
 //                           ),
 //                         ),
-//                         if (userData!['companyLogo'] != null &&
-//                             userData!['companyLogo'].isNotEmpty)
-//                           SizedBox(
-//                             width: 60,
-//                             height: 60,
-//                             child: CachedNetworkImage(
-//                               imageUrl: userData!['companyLogo'],
-//                               fit: BoxFit.contain,
-//                               placeholder: (context, url) =>
-//                                   const CircularProgressIndicator(),
-//                               errorWidget: (context, error, stackTrace) =>
-//                                   const Icon(Icons.error),
-//                             ),
-//                           ),
 //                       ],
 //                     ),
 //                   ),
-//               ],
-//             ),
-//           ),
-//           Padding(
-//             padding: const EdgeInsets.all(8),
-//             child: ElevatedButton.icon(
-//               icon: const Icon(Icons.download, size: 20),
-//               label: const Text('Download'),
-//               style: ElevatedButton.styleFrom(
-//                 minimumSize: const Size(double.infinity, 44),
-//                 shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(8)),
+//                   // User info section
+//                   if (userData != null)
+//                     Container(
+//                       width: double.infinity,
+//                       padding: const EdgeInsets.all(16),
+//                       decoration: BoxDecoration(
+//                         color: backgroundColor,
+//                       ),
+//                       child: Row(
+//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                         crossAxisAlignment: CrossAxisAlignment.center,
+//                         children: [
+//                           Container(
+//                             decoration: BoxDecoration(
+//                               shape: BoxShape.circle,
+//                               border: Border.all(
+//                                 color: Colors.white.withOpacity(0.7),
+//                                 width: 2,
+//                               ),
+//                             ),
+//                             child: CircleAvatar(
+//                               radius: 28,
+//                               backgroundColor: Colors.white.withOpacity(0.2),
+//                               backgroundImage: userData!['userImage'] != null
+//                                   ? NetworkImage(userData!['userImage'])
+//                                   : null,
+//                               child: userData!['userImage'] == null
+//                                   ? const Icon(Icons.person,
+//                                       size: 28, color: Colors.white)
+//                                   : null,
+//                             ),
+//                           ),
+//                           Expanded(
+//                             child: Padding(
+//                               padding:
+//                                   const EdgeInsets.symmetric(horizontal: 16),
+//                               child: Column(
+//                                 crossAxisAlignment: CrossAxisAlignment.start,
+//                                 children: [
+//                                   Text(
+//                                     userData!['firstName'] ?? 'Unknown User',
+//                                     style: const TextStyle(
+//                                       fontWeight: FontWeight.bold,
+//                                       fontSize: 18,
+//                                       color: Colors.white,
+//                                     ),
+//                                   ),
+//                                   Text(
+//                                     userData!['designation'] ??
+//                                         'No designation',
+//                                     style: const TextStyle(
+//                                       fontSize: 14,
+//                                       color: Colors.white70,
+//                                     ),
+//                                   ),
+//                                   const SizedBox(height: 8),
+//                                   Row(
+//                                     children: [
+//                                       const Icon(Icons.email,
+//                                           size: 14, color: Colors.white70),
+//                                       const SizedBox(width: 6),
+//                                       Expanded(
+//                                         child: Text(
+//                                           userData!['email'] ?? 'No email',
+//                                           style: const TextStyle(
+//                                             fontSize: 12,
+//                                             color: Colors.white70,
+//                                           ),
+//                                           overflow: TextOverflow.ellipsis,
+//                                         ),
+//                                       ),
+//                                     ],
+//                                   ),
+//                                 ],
+//                               ),
+//                             ),
+//                           ),
+//                           if (userData!['companyLogo'] != null &&
+//                               userData!['companyLogo'].isNotEmpty)
+//                             Container(
+//                               width: 64,
+//                               height: 64,
+//                               padding: const EdgeInsets.all(6),
+//                               decoration: BoxDecoration(
+//                                 color: Colors.white.withOpacity(0.9),
+//                                 borderRadius: BorderRadius.circular(12),
+//                               ),
+//                               child: CachedNetworkImage(
+//                                 imageUrl: userData!['companyLogo'],
+//                                 fit: BoxFit.contain,
+//                                 placeholder: (context, url) =>
+//                                     const CircularProgressIndicator(),
+//                                 errorWidget: (context, error, stackTrace) =>
+//                                     const Icon(Icons.error),
+//                               ),
+//                             ),
+//                         ],
+//                       ),
+//                     ),
+//                 ],
 //               ),
-//               onPressed: () => _captureAndSaveImage(photoId, photoUrl),
 //             ),
-//           ),
-//         ],
+//             // Simplified download button
+//             Padding(
+//               padding: const EdgeInsets.all(8),
+//               child: TextButton.icon(
+//                 icon: const Icon(Icons.download, size: 20, color: Colors.white),
+//                 label: const Text('Download',
+//                     style: TextStyle(color: Colors.white)),
+//                 style: TextButton.styleFrom(
+//                   backgroundColor: backgroundColor,
+//                   minimumSize: const Size(double.infinity, 44),
+//                   shape: RoundedRectangleBorder(
+//                       borderRadius: BorderRadius.circular(8)),
+//                 ),
+//                 onPressed: () => _captureAndSaveImage(photoId, photoUrl),
+//               ),
+//             ),
+//           ],
+//         ),
 //       ),
 //     );
 //   }
@@ -400,7 +514,12 @@
 //         itemCount: _images.length + (_hasMoreData ? 1 : 0),
 //         itemBuilder: (context, index) {
 //           if (index == _images.length) {
-//             return const Center(child: CircularProgressIndicator());
+//             return const Center(
+//               child: Padding(
+//                 padding: EdgeInsets.all(16.0),
+//                 child: CircularProgressIndicator(),
+//               ),
+//             );
 //           }
 //           final photo = _images[index].data() as Map<String, dynamic>;
 //           final photoId = _images[index].id;
@@ -434,14 +553,11 @@
 //   Widget build(BuildContext context) {
 //     return Scaffold(
 //       appBar: AppBar(
-//         title: const Text('Photo Gallery'),
+//         backgroundColor: Color(0xFF4CAF50),
+//         title: const Text('Photo Gallery',
+//             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+//         elevation: 0,
 //         actions: [
-//           IconButton(
-//             icon: Icon(_isGridView ? Icons.list : Icons.grid_view),
-//             onPressed: () {
-//               setState(() => _isGridView = !_isGridView);
-//             },
-//           ),
 //           IconButton(
 //             icon: const Icon(Icons.refresh),
 //             onPressed: () {
@@ -449,6 +565,10 @@
 //                 _images.clear();
 //                 _lastDocument = null;
 //                 _hasMoreData = true;
+//                 _animationControllers.forEach((key, controller) {
+//                   controller.dispose();
+//                 });
+//                 _animationControllers.clear();
 //               });
 //               _loadInitialImages();
 //               _getUserData();
@@ -456,11 +576,20 @@
 //           ),
 //         ],
 //       ),
-//       body: userData == null
-//           ? const Center(child: CircularProgressIndicator())
-//           : _isGridView
-//               ? _buildGridView()
-//               : _buildListView(),
+//       body: Container(
+//         decoration: BoxDecoration(
+//           gradient: LinearGradient(
+//             begin: Alignment.topCenter,
+//             end: Alignment.bottomCenter,
+//             colors: [Colors.grey.shade100, Colors.grey.shade200],
+//           ),
+//         ),
+//         child: userData == null
+//             ? const Center(child: CircularProgressIndicator())
+//             : _isGridView
+//                 ? _buildGridView()
+//                 : _buildListView(),
+//       ),
 //     );
 //   }
 // }
@@ -477,8 +606,9 @@
 //         text: 'Maxgrow',
 //         style: TextStyle(
 //           color: Colors.white70,
-//           fontSize: 28,
+//           fontSize: 30,
 //           fontWeight: FontWeight.w600,
+//           letterSpacing: 1.0,
 //         ),
 //       ),
 //       textDirection: TextDirection.ltr,
@@ -496,6 +626,7 @@
 //   @override
 //   bool shouldRepaint(CustomPainter oldDelegate) => false;
 // }
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -506,6 +637,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 
 class ListImages extends StatefulWidget {
   const ListImages({Key? key}) : super(key: key);
@@ -545,11 +680,23 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
     super.initState();
     _getUserData();
     _loadInitialImages();
+    // Initialize AwesomeNotifications
+    AwesomeNotifications().initialize(
+      null, // No default icon
+      [
+        NotificationChannel(
+          channelKey: 'basic_channel',
+          channelName: 'Basic Notifications',
+          channelDescription: 'Notification channel for general alerts',
+          importance: NotificationImportance.High,
+          enableVibration: true,
+        ),
+      ],
+    );
   }
 
   @override
   void dispose() {
-    // Dispose all animation controllers
     _animationControllers.forEach((key, controller) {
       controller.dispose();
     });
@@ -586,7 +733,6 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
         _isLoadingMore = false;
       });
 
-      // Create animation controllers for new items
       for (var doc in snapshot.docs) {
         _createAnimationController(doc.id);
       }
@@ -615,7 +761,6 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
         _isLoadingMore = false;
       });
 
-      // Create animation controllers for new items
       for (var doc in snapshot.docs) {
         _createAnimationController(doc.id);
       }
@@ -632,8 +777,6 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
         vsync: this,
       );
       _animationControllers[id] = controller;
-
-      // Start the animation after a small delay
       Future.delayed(
           Duration(milliseconds: 50 * _animationControllers.length % 10), () {
         if (mounted && controller.isAnimating != true) {
@@ -653,17 +796,12 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
         size: const Size(80, 80),
         maximumColorCount: maxColorCount,
       );
-
-      // Choose vibrant color if available, otherwise use dominant color
       final color = paletteGenerator.vibrantColor?.color ??
           paletteGenerator.dominantColor?.color ??
           Colors.grey.shade800;
-
-      // Ensure the color is dark enough for white text
       final HSLColor hsl = HSLColor.fromColor(color);
       final adjustedColor =
           hsl.lightness > 0.7 ? hsl.withLightness(0.6).toColor() : color;
-
       _dominantColors[imageUrl] = adjustedColor;
       return adjustedColor;
     } catch (e) {
@@ -673,110 +811,329 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
   }
 
   Future<void> _captureAndSaveImage(String photoId, String photoUrl) async {
-    final status = await Permission.storage.request();
-    if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Storage permission denied')),
-      );
-      return;
+    bool hasPermission = true;
+    if (Platform.isAndroid) {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+
+      if (sdkInt < 33) {
+        final status = await Permission.storage.request();
+        hasPermission = status.isGranted;
+        if (!hasPermission && status.isPermanentlyDenied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                    'Storage permission is permanently denied. Please enable it in app settings.'),
+                action: SnackBarAction(
+                  label: 'Settings',
+                  onPressed: () => openAppSettings(),
+                ),
+              ),
+            );
+          }
+        } else if (!hasPermission) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Storage permission denied')),
+            );
+          }
+        }
+      } else {
+        final status = await Permission.photos.request();
+        hasPermission = status.isGranted;
+        if (!hasPermission && status.isPermanentlyDenied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                    'Photo access permission is permanently denied. Please enable it in app settings.'),
+                action: SnackBarAction(
+                  label: 'Settings',
+                  onPressed: () => openAppSettings(),
+                ),
+              ),
+            );
+          }
+        } else if (!hasPermission) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Photo access permission denied')),
+            );
+          }
+        }
+      }
     }
 
-    final key = _photoKeys[photoId];
-    if (key == null || key.currentContext == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot capture image at this time')),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Processing A4 image...')),
-    );
+    if (!hasPermission) return;
 
     try {
-      // Create an A4 sized render object
-      // A4 has 1:√2 ratio (width:height)
-      // Standard A4 is 210×297mm, converting to pixels at 300 DPI: 2480×3508 pixels
-      // For practical rendering purposes, we'll use a scaled version maintaining the ratio
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User data not found')),
+          );
+        }
+        return;
+      }
 
-      // Get the original render object to extract content
-      final originalBoundary =
-          key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final userData = userDoc.data()!;
+      final bool freeDownloadUsed = userData['freeDownloadUsed'] ?? false;
+      final bool isSubscribed = userData['isSubscribed'] ?? false;
+      final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
 
-      // Create an offscreen canvas with A4 proportions
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
+      bool hasActiveSubscription = isSubscribed && subscriptionExpiry != null;
+      if (hasActiveSubscription &&
+          !subscriptionExpiry!.toDate().isAfter(DateTime.now())) {
+        await _firestore.collection('users').doc(userId).update({
+          'isSubscribed': false,
+        });
+        hasActiveSubscription = false;
+      }
 
-      // A4 dimensions (at a reasonable scale for mobile)
-      const double a4Width = 1240.0; // half of 2480 (A4 width @ 300dpi)
-      const double a4Height = 1754.0; // half of 3508 (A4 height @ 300dpi)
+      if (isSubscribed && subscriptionExpiry == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Subscription data is incomplete. Please contact support.')),
+          );
+        }
+        return;
+      }
 
-      // Fill with white background
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, a4Width, a4Height),
-        Paint()..color = Colors.white,
-      );
+      if (!freeDownloadUsed || hasActiveSubscription) {
+        try {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Processing image...')),
+            );
+          }
 
-      // Get the original content as an image
-      final originalImage =
-          await originalBoundary.toImage(pixelRatio: pixelRatio);
-      final originalImageByteData = await originalImage.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
+          final key = _photoKeys[photoId];
+          if (key == null || key.currentContext == null) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Cannot capture image at this time')),
+              );
+            }
+            return;
+          }
 
-      if (originalImageByteData != null) {
-        final codec = await ui.instantiateImageCodec(
-          originalImageByteData.buffer.asUint8List(),
+          final boundary =
+              key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+          // A4 dimensions in pixels at 300 DPI (scaled for performance)
+          const double a4Width = 2480.0;
+          const double a4Height = 3508.0;
+
+          // Capture the content
+          final image = await boundary.toImage(pixelRatio: pixelRatio);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          if (byteData == null) throw Exception('Failed to capture image data');
+
+          final codec =
+              await ui.instantiateImageCodec(byteData.buffer.asUint8List());
+          final frameInfo = await codec.getNextFrame();
+
+          // Create A4 canvas
+          final recorder = ui.PictureRecorder();
+          final canvas = Canvas(recorder);
+
+          // Draw the image to fill the entire A4 page
+          canvas.drawImageRect(
+            frameInfo.image,
+            Rect.fromLTWH(
+                0, 0, image.width.toDouble(), image.height.toDouble()),
+            Rect.fromLTWH(0, 0, a4Width, a4Height),
+            Paint()..filterQuality = FilterQuality.high,
+          );
+
+          // Convert to PNG
+          final picture = recorder.endRecording();
+          final a4Image =
+              await picture.toImage(a4Width.toInt(), a4Height.toInt());
+          final a4ByteData =
+              await a4Image.toByteData(format: ui.ImageByteFormat.png);
+          final a4PngBytes = a4ByteData!.buffer.asUint8List();
+
+          // Save the image
+          await FlutterImageGallerySaver.saveImage(a4PngBytes);
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image saved to gallery!'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+
+          if (!freeDownloadUsed && !hasActiveSubscription) {
+            await _firestore.collection('users').doc(userId).update({
+              'freeDownloadUsed': true,
+              'lastSubscriptionUpdate': Timestamp.now(),
+            });
+          }
+        } catch (e) {
+          print('Error saving image: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error saving image: $e')),
+            );
+          }
+        }
+      } else {
+        await _showNotification(
+          title: 'Subscription Expired',
+          body:
+              'Your subscription plan has expired. Please renew to continue downloading images.',
         );
-        final frameInfo = await codec.getNextFrame();
-
-        // Calculate the scaling to fit the content within A4 while preserving aspect ratio
-        final originalWidth = originalImage.width.toDouble();
-        final originalHeight = originalImage.height.toDouble();
-
-        // Calculate scaling factors
-        final widthScale = a4Width / originalWidth;
-        final heightScale = a4Height / originalHeight;
-
-        // Use the smaller scaling factor to ensure the image fits entirely
-        final scale = widthScale < heightScale ? widthScale : heightScale;
-
-        // Calculate centered position
-        final centeredX = (a4Width - (originalWidth * scale)) / 2;
-        final centeredY = (a4Height - (originalHeight * scale)) / 2;
-
-        // Draw the original image scaled and centered on A4 canvas
-        canvas.drawImageRect(
-          frameInfo.image,
-          Rect.fromLTWH(0, 0, originalWidth, originalHeight),
-          Rect.fromLTWH(centeredX, centeredY, originalWidth * scale,
-              originalHeight * scale),
-          Paint(),
-        );
-
-        // Convert the A4 canvas to an image
-        final picture = recorder.endRecording();
-        final a4Image =
-            await picture.toImage(a4Width.toInt(), a4Height.toInt());
-        final a4ByteData =
-            await a4Image.toByteData(format: ui.ImageByteFormat.png);
-        final a4PngBytes = a4ByteData!.buffer.asUint8List();
-
-        // Save the A4 formatted image
-        await FlutterImageGallerySaver.saveImage(a4PngBytes);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('A4 image saved to gallery!'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (mounted) {
+          _showSubscriptionDialog();
+        }
       }
     } catch (e) {
-      print('Error saving A4 image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error saving A4 image')),
-      );
+      print('Error checking user subscription: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showNotification(
+      {required String title, required String body}) async {
+    if (Platform.isAndroid) {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+
+      if (sdkInt >= 33) {
+        final status = await Permission.notification.request();
+        if (!status.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                    'Notification permission denied. Please enable it in settings.'),
+                action: SnackBarAction(
+                  label: 'Settings',
+                  onPressed: () => openAppSettings(),
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: DateTime.now().millisecondsSinceEpoch % 10000,
+        channelKey: 'basic_channel',
+        title: title,
+        body: body,
+        notificationLayout: NotificationLayout.Default,
+      ),
+    );
+  }
+
+  void _showSubscriptionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Subscription Required'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'You have used your free download. Please choose a subscription plan to continue downloading images.',
+              ),
+              const SizedBox(height: 16),
+              _buildPlanOption('Standard Plan', 300, 'month'),
+              _buildPlanOption('Premium Plan', 1000, 'year'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanOption(String planName, int price, String duration) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        title: Text(planName),
+        subtitle: Text('\₹$price/$duration'),
+        trailing: const Icon(Icons.arrow_forward),
+        onTap: () => _redirectToWhatsApp(planName, price, duration),
+      ),
+    );
+  }
+
+  Future<void> _redirectToWhatsApp(
+      String plan, int price, String duration) async {
+    const adminWhatsAppNumber = '+919567725398';
+    final message =
+        'Hello, I want to subscribe to the $plan (\₹$price/$duration) for the PhotoMerge app.';
+    final encodedMessage = Uri.encodeComponent(message);
+
+    final whatsappUrl =
+        'https://wa.me/$adminWhatsAppNumber?text=$encodedMessage';
+    final uri = Uri.parse(whatsappUrl);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Could not open WhatsApp. Please ensure WhatsApp is installed.')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content:
+                    Text('WhatsApp is not installed or cannot be opened.')),
+          );
+        }
+        final fallbackUrl =
+            'whatsapp://send?phone=$adminWhatsAppNumber&text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        if (await canLaunchUrl(fallbackUri)) {
+          await launchUrl(fallbackUri);
+        }
+      }
+    } catch (e) {
+      print('Error launching WhatsApp: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open WhatsApp: $e')),
+        );
+      }
+    }
+
+    if (mounted) {
+      Navigator.pop(context);
     }
   }
 
@@ -807,272 +1164,60 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
       },
       child: Card(
         key: ValueKey(photoId),
-        elevation: 8,
-        shadowColor: backgroundColor.withOpacity(0.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: backgroundColor.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // The RepaintBoundary now encompasses the entire content to be captured for A4
-              RepaintBoundary(
-                key: _photoKeys[photoId],
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    color: Colors
-                        .white, // Ensure background is white for A4 paper look
-                    child: Column(
+        child: Column(
+          children: [
+            RepaintBoundary(
+              key: _photoKeys[photoId],
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 4 / 5,
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        // Image section
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16)),
-                          child: AspectRatio(
-                            aspectRatio: 4 / 5,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Hero(
-                                  tag: 'photo_$photoId',
-                                  child: CachedNetworkImage(
-                                    imageUrl: photoUrl,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    placeholder: (context, url) =>
-                                        Shimmer.fromColors(
-                                      baseColor: Colors.grey[300]!,
-                                      highlightColor: Colors.grey[100]!,
-                                      child: Container(color: Colors.grey[300]),
-                                    ),
-                                    errorWidget: (context, url, error) {
-                                      print(
-                                          'Image load error for $url: $error');
-                                      return const Icon(Icons.error, size: 48);
-                                    },
-                                  ),
-                                ),
-                                Positioned.fill(
-                                  child: CustomPaint(
-                                    painter: WatermarkPainter(),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  height: fadeHeight,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          backgroundColor.withOpacity(0.3),
-                                          backgroundColor.withOpacity(0.6),
-                                          backgroundColor.withOpacity(0.9),
-                                          backgroundColor,
-                                        ],
-                                        stops: const [0.0, 0.3, 0.6, 0.8, 1.0],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        Hero(
+                          tag: 'photo_$photoId',
+                          child: CachedNetworkImage(
+                            imageUrl: photoUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(color: Colors.grey[300]),
                             ),
+                            errorWidget: (context, url, error) {
+                              print('Image load error for $url: $error');
+                              return const Icon(Icons.error, size: 48);
+                            },
                           ),
                         ),
-
-                        // User info section - adjusted for more A4-friendly layout
-                        if (userData != null)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: WatermarkPainter(),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: fadeHeight,
+                          child: Container(
                             decoration: BoxDecoration(
-                              color: backgroundColor,
-                            ),
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    // User avatar with border
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.7),
-                                          width: 2,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.2),
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
-                                      child: CircleAvatar(
-                                        radius: 28,
-                                        backgroundColor:
-                                            Colors.white.withOpacity(0.2),
-                                        backgroundImage:
-                                            userData!['userImage'] != null
-                                                ? NetworkImage(
-                                                    userData!['userImage'])
-                                                : null,
-                                        child: userData!['userImage'] == null
-                                            ? const Icon(Icons.person,
-                                                size: 28, color: Colors.white)
-                                            : null,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              userData!['firstName'] ??
-                                                  'Unknown User',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18,
-                                                color: Colors.white,
-                                                letterSpacing: 0.2,
-                                                shadows: [
-                                                  Shadow(
-                                                    offset: Offset(0, 1),
-                                                    blurRadius: 2,
-                                                    color: Colors.black26,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Text(
-                                              userData!['designation'] ??
-                                                  'No designation',
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.white70,
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.email,
-                                                    size: 14,
-                                                    color: Colors.white70),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    userData!['email'] ??
-                                                        'No email',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.white70,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    if (userData!['companyLogo'] != null &&
-                                        userData!['companyLogo'].isNotEmpty)
-                                      Container(
-                                        width: 64,
-                                        height: 64,
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.9),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color:
-                                                  Colors.black.withOpacity(0.1),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: CachedNetworkImage(
-                                          imageUrl: userData!['companyLogo'],
-                                          fit: BoxFit.contain,
-                                          placeholder: (context, url) =>
-                                              const CircularProgressIndicator(),
-                                          errorWidget:
-                                              (context, error, stackTrace) =>
-                                                  const Icon(Icons.error),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                // Add an A4-optimized footer
-                                const SizedBox(height: 16),
-                                const Divider(
-                                    color: Colors.white24, thickness: 1),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.link,
-                                        size: 14, color: Colors.white70),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      userData!['companyWebsite'] ??
-                                          'companyWebsite',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        // Bottom part with A4-friendly rounded corners
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(16),
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'A4 Document - ${DateTime.now().toLocal().toString().split(' ')[0]}',
-                              style: TextStyle(
-                                color: backgroundColor.withOpacity(0.7),
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  backgroundColor.withOpacity(0.3),
+                                  backgroundColor.withOpacity(0.6),
+                                  backgroundColor.withOpacity(0.9),
+                                  backgroundColor,
+                                ],
+                                stops: const [0.0, 0.3, 0.6, 0.8, 1.0],
                               ),
                             ),
                           ),
@@ -1080,68 +1225,122 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                       ],
                     ),
                   ),
-                ),
-              ),
-              // Actions outside the RepaintBoundary - won't be included in saved image
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(16),
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.download_rounded, size: 20),
-                        label: const Text('Download'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: backgroundColor,
-                          foregroundColor: Colors.white,
-                          elevation: 4,
-                          minimumSize: const Size(double.infinity, 48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () =>
-                            _captureAndSaveImage(photoId, photoUrl),
+                  if (userData != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ClipOval(
-                      child: Material(
-                        color: Colors.grey.shade200,
-                        child: InkWell(
-                          onTap: () {
-                            // Share functionality can be added here
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('Share functionality coming soon!'),
-                                behavior: SnackBarBehavior.floating,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.7),
+                                width: 2,
                               ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            child: const Icon(
-                              Icons.share_rounded,
-                              size: 22,
-                              color: Colors.black54,
+                            ),
+                            child: CircleAvatar(
+                              radius: 28,
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              backgroundImage: userData!['userImage'] != null
+                                  ? NetworkImage(userData!['userImage'])
+                                  : null,
+                              child: userData!['userImage'] == null
+                                  ? const Icon(Icons.person,
+                                      size: 28, color: Colors.white)
+                                  : null,
                             ),
                           ),
-                        ),
+                          Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    userData!['firstName'] ?? 'Unknown User',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    userData!['designation'] ??
+                                        'No designation',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.email,
+                                          size: 14, color: Colors.white70),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          userData!['email'] ?? 'No email',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white70,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (userData!['companyLogo'] != null &&
+                              userData!['companyLogo'].isNotEmpty)
+                            Container(
+                              width: 74,
+                              height: 7,
+                              padding: EdgeInsets.all(9),
+                              child: CircleAvatar(
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                backgroundImage:
+                                    userData!['companyLogo'] != null
+                                        ? NetworkImage(userData!['companyLogo'])
+                                        : null,
+                                child: userData!['companyLogo'] == null
+                                    ? const Icon(Icons.person,
+                                        size: 28, color: Colors.white)
+                                    : null,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: TextButton.icon(
+                icon: const Icon(Icons.download, size: 20, color: Colors.white),
+                label: const Text('Download',
+                    style: TextStyle(color: Colors.white)),
+                style: TextButton.styleFrom(
+                  backgroundColor: backgroundColor,
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _captureAndSaveImage(photoId, photoUrl),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1167,9 +1366,7 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
         itemCount: _images.length + (_hasMoreData ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == _images.length) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
           final photo = _images[index].data() as Map<String, dynamic>;
           final photoId = _images[index].id;
@@ -1184,7 +1381,7 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 );
@@ -1233,7 +1430,7 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 );
@@ -1250,21 +1447,11 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Photo Gallery',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
+        backgroundColor: Color(0xFF4CAF50),
+        title: const Text('Photo Gallery',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(_isGridView ? Icons.list : Icons.grid_view),
-            onPressed: () {
-              setState(() => _isGridView = !_isGridView);
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -1272,8 +1459,6 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                 _images.clear();
                 _lastDocument = null;
                 _hasMoreData = true;
-
-                // Dispose and clear animation controllers
                 _animationControllers.forEach((key, controller) {
                   controller.dispose();
                 });
@@ -1290,10 +1475,7 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.grey.shade100,
-              Colors.grey.shade200,
-            ],
+            colors: [Colors.grey.shade100, Colors.grey.shade200],
           ),
         ),
         child: userData == null

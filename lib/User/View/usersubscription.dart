@@ -62,7 +62,7 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = 'Error fetching subscription: $e';
+        _error = 'Error fetching subscription';
       });
       _logError('fetchUserData', e.toString());
     }
@@ -75,20 +75,14 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
   }
 
   void _updateCountdown() {
-    if (userData == null) {
-      print('Debug: userData is null');
-      return;
-    }
+    if (userData == null) return;
     final Timestamp? subscriptionExpiry = userData?['subscriptionExpiry'];
     if (subscriptionExpiry == null) {
-      print('Debug: subscriptionExpiry is null');
       _timeUntilExpiry.value = null;
       return;
     }
     final expiryDate = subscriptionExpiry.toDate();
     final now = DateTime.now();
-    print(
-        'Debug: expiryDate=$expiryDate, now=$now, isActive=${expiryDate.isAfter(now)}');
     if (expiryDate.isAfter(now)) {
       final newDuration = expiryDate.difference(now);
       if (_timeUntilExpiry.value == null ||
@@ -96,11 +90,9 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
         _timeUntilExpiry.value = newDuration;
       }
     } else {
-      // Subscription expired, update Firestore
       _firestore.collection('users').doc(userId).update({
         'isSubscribed': false,
       }).catchError((e) {
-        print('Error updating subscription status: $e');
         _logError('updateSubscriptionStatus', e.toString());
       });
       setState(() {
@@ -160,10 +152,9 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
         }
       }
     } catch (e) {
-      print('Error launching WhatsApp: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to open WhatsApp: $e')),
+          SnackBar(content: Text('Failed to open WhatsApp')),
         );
       }
       _logError('redirectToWhatsApp', e.toString());
@@ -174,7 +165,7 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text('Choose a Subscription Plan'),
         content: SingleChildScrollView(
           child: Column(
@@ -182,7 +173,7 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Select a plan to continue downloading images.'),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildPlanOption('Standard Plan', 300, 'month'),
               _buildPlanOption('Premium Plan', 1000, 'year'),
             ],
@@ -191,7 +182,10 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF4CAF50)),
+            ),
           ),
         ],
       ),
@@ -201,12 +195,13 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
   Widget _buildPlanOption(String planName, int price, String duration) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
+      elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ListTile(
         title:
             Text(planName, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('\₹$price/$duration'),
-        trailing: const Icon(Icons.arrow_forward, color: Colors.blue),
+        trailing: const Icon(Icons.arrow_forward, color: Color(0xFF4CAF50)),
         onTap: () {
           Navigator.pop(context);
           _redirectToWhatsApp(planName, price, duration);
@@ -219,22 +214,17 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Subscription'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).primaryColor,
-                Theme.of(context).primaryColor.withOpacity(0.7)
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+        title: const Text(
+          'My Subscription',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
+        backgroundColor: const Color(0xFF4CAF50),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
               setState(() {
                 _isLoading = true;
@@ -245,53 +235,15 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
           ),
         ],
       ),
+      backgroundColor: Colors.white,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF4CAF50)))
           : Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(12.0),
               child: Center(
                 child: _error != null
-                    ? Card(
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.error_outline,
-                                  size: 48, color: Colors.red),
-                              const SizedBox(height: 12),
-                              Text(
-                                _error!,
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.w500),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _isLoading = true;
-                                    _error = null;
-                                  });
-                                  _fetchUserData();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red[600],
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8)),
-                                ),
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
+                    ? _buildErrorCard()
                     : StreamBuilder<DocumentSnapshot>(
                         stream: _firestore
                             .collection('users')
@@ -301,35 +253,13 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
                             return const Center(
-                                child: CircularProgressIndicator());
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF4CAF50)));
                           }
                           if (snapshot.hasError) {
                             _logError(
                                 'streamBuilder', snapshot.error.toString());
-                            return Card(
-                              elevation: 6,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.error_outline,
-                                        size: 48, color: Colors.red),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Error: ${snapshot.error}',
-                                      style: const TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.w500),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
+                            return _buildErrorCard(error: 'Error loading data');
                           }
                           if (!snapshot.hasData || !snapshot.data!.exists) {
                             return _buildSubscriptionCard(isSubscribed: false);
@@ -357,6 +287,47 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
             (_lastSnapshotData!['subscriptionExpiry'] as Timestamp?)?.seconds;
   }
 
+  Widget _buildErrorCard({String? error}) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Color(0xFF4CAF50)),
+            const SizedBox(height: 12),
+            Text(
+              error ?? _error!,
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _error = null;
+                });
+                _fetchUserData();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text(
+                'Retry',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSubscriptionCard({bool isSubscribed = true}) {
     final bool subscriptionActive =
         isSubscribed && (userData?['isSubscribed'] ?? false);
@@ -378,121 +349,84 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
           : 'Expires on: ${DateFormat.yMMMd().format(expiryDate)}';
     }
 
-    final isDangerTheme = isExpired || isNearExpiry;
-    final cardColor = isDangerTheme ? Colors.red[600] : Colors.blue[600];
-    final iconColor = isDangerTheme
-        ? Colors.red[900]
-        : (subscriptionActive ? Colors.green[600] : Colors.grey[600]);
-    final textColor = Colors.white;
-
     return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              isExpired
+                  ? Icons.warning
+                  : (subscriptionActive
+                      ? Icons.check_circle
+                      : Icons.info_outline),
+              size: 48,
+              color: const Color(0xFF4CAF50),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isExpired
+                  ? 'Expired Subscription'
+                  : (subscriptionActive
+                      ? 'Active Subscription'
+                      : 'No Active Subscription'),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Plan: $subscriptionPlan',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              expiryText,
+              style: const TextStyle(fontSize: 14),
+            ),
+            if (subscriptionActive)
+              ValueListenableBuilder<Duration?>(
+                valueListenable: _timeUntilExpiry,
+                builder: (context, duration, child) {
+                  if (duration == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Time Remaining: ${_formatDuration(duration)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF4CAF50),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _showSubscriptionDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(
+                isExpired
+                    ? 'Renew Now'
+                    : (subscriptionActive ? 'Change Plan' : 'Subscribe Now'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
             ),
           ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                isExpired
-                    ? Icons.warning
-                    : (subscriptionActive
-                        ? Icons.check_circle
-                        : Icons.info_outline),
-                size: 64,
-                color: iconColor,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                isExpired
-                    ? 'Expired Subscription'
-                    : (subscriptionActive
-                        ? 'Active Subscription'
-                        : 'No Active Subscription'),
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Plan: $subscriptionPlan',
-                style: TextStyle(
-                    fontSize: 18,
-                    color: textColor,
-                    fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                expiryText,
-                style:
-                    TextStyle(fontSize: 16, color: textColor.withOpacity(0.9)),
-              ),
-              if (subscriptionActive)
-                ValueListenableBuilder<Duration?>(
-                  valueListenable: _timeUntilExpiry,
-                  builder: (context, duration, child) {
-                    if (duration == null) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color:
-                              isNearExpiry ? Colors.red[900] : Colors.blue[800],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Time Remaining: ${_formatDuration(duration)}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _showSubscriptionDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isDangerTheme ? Colors.red[900] : Colors.blue[800],
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                  elevation: 4,
-                ),
-                child: Text(
-                  isExpired
-                      ? 'Renew Now'
-                      : (subscriptionActive ? 'Change Plan' : 'Subscribe Now'),
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
