@@ -7,10 +7,12 @@ import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+import 'dart:typed_data';
 
 class Mycategory extends StatefulWidget {
   final String categoryFilter; // Required category filter
@@ -21,7 +23,7 @@ class Mycategory extends StatefulWidget {
   State<Mycategory> createState() => _MycategoryState();
 }
 
-class _MycategoryState extends State<Mycategory> {
+class _MycategoryState extends State<Mycategory> with TickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
   Map<String, dynamic>? userData = {}; // Initialize as empty map to avoid null
@@ -33,6 +35,7 @@ class _MycategoryState extends State<Mycategory> {
   // Cached maps for performance
   final Map<String, GlobalKey> _photoKeys = {};
   final Map<String, Color> _dominantColors = {};
+  final Map<String, AnimationController> _animationControllers = {};
 
   // Constants
   static const String adminImagesCollection = 'admin_images';
@@ -40,6 +43,8 @@ class _MycategoryState extends State<Mycategory> {
   static const double fadeHeight = 100.0;
   static const int maxColorCount = 10;
   static const double pixelRatio = 3.0;
+  static const int a4Width = 2480; // A4 width in pixels at 300 DPI
+  static const int a4Height = 3508; // A4 height in pixels at 300 DPI
 
   @override
   void initState() {
@@ -376,8 +381,11 @@ class _MycategoryState extends State<Mycategory> {
           final boundary =
               key.currentContext!.findRenderObject() as RenderRepaintBoundary;
           final image = await boundary.toImage(pixelRatio: pixelRatio);
+
+          // Resize to A4 size
+          final resizedImage = await _resizeToA4(image);
           final byteData =
-              await image.toByteData(format: ui.ImageByteFormat.png);
+              await resizedImage.toByteData(format: ui.ImageByteFormat.png);
           final pngBytes = byteData!.buffer.asUint8List();
 
           try {
@@ -426,6 +434,26 @@ class _MycategoryState extends State<Mycategory> {
         );
       }
     }
+  }
+
+  Future<ui.Image> _resizeToA4(ui.Image src) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+        recorder, Rect.fromLTWH(0, 0, a4Width.toDouble(), a4Height.toDouble()));
+
+    // Stretch image to fill A4 size
+    final srcWidth = src.width.toDouble();
+    final srcHeight = src.height.toDouble();
+
+    canvas.drawImageRect(
+      src,
+      Rect.fromLTWH(0, 0, srcWidth, srcHeight),
+      Rect.fromLTWH(0, 0, a4Width.toDouble(), a4Height.toDouble()),
+      Paint()..filterQuality = ui.FilterQuality.high,
+    );
+
+    final picture = recorder.endRecording();
+    return picture.toImage(a4Width, a4Height);
   }
 
   Future<void> _showNotification(
@@ -578,164 +606,347 @@ class _MycategoryState extends State<Mycategory> {
       _photoKeys[photoId] = GlobalKey();
     }
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        children: [
-          RepaintBoundary(
-            key: _photoKeys[photoId],
-            child: Column(
-              children: [
-                AspectRatio(
-                  aspectRatio: 5 / 6,
-                  child: Stack(
-                    children: [
-                      CachedNetworkImage(
-                        imageUrl: photoUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        placeholder: (context, url) =>
-                            const Center(child: CircularProgressIndicator()),
-                        errorWidget: (context, url, error) {
-                          print('Image load error for $url: $error');
-                          return const Icon(Icons.error);
-                        },
-                      ),
-                      Positioned.fill(
-                        child: CustomPaint(painter: WatermarkPainter()),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: fadeHeight * 2.0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                backgroundColor.withOpacity(0.1),
-                                backgroundColor.withOpacity(0.3),
-                                backgroundColor.withOpacity(0.5),
-                                backgroundColor.withOpacity(0.7),
-                                backgroundColor.withOpacity(0.9),
-                                backgroundColor,
-                              ],
-                              stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0],
+    final AnimationController animController = _animationControllers[photoId] ??
+        AnimationController(
+            duration: const Duration(milliseconds: 500), vsync: this)
+      ..forward();
+    final Animation<double> fadeAnimation = CurvedAnimation(
+      parent: animController,
+      curve: Curves.easeInOut,
+    );
+
+    return AnimatedBuilder(
+      animation: fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - fadeAnimation.value)),
+          child: Opacity(
+            opacity: fadeAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: Card(
+        key: ValueKey(photoId),
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            RepaintBoundary(
+              key: _photoKeys[photoId],
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 4 / 5,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Hero(
+                          tag: 'photo_$photoId',
+                          child: CachedNetworkImage(
+                            imageUrl: photoUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            memCacheHeight: 800, // Higher resolution cache
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(
+                                color: Colors.grey[300],
+                              ),
+                            ),
+                            errorWidget: (context, url, error) {
+                              print('Image load error for $url: $error');
+                              return Container(
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: Icon(Icons.error,
+                                      size: 48, color: Colors.red),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: WatermarkPainter(userData: userData),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: fadeHeight,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  backgroundColor.withOpacity(0.1),
+                                  backgroundColor.withOpacity(0.3),
+                                  backgroundColor.withOpacity(0.5),
+                                  backgroundColor.withOpacity(0.7),
+                                  backgroundColor.withOpacity(0.9),
+                                  backgroundColor,
+                                ],
+                                stops: const [
+                                  0.0,
+                                  0.2,
+                                  0.4,
+                                  0.6,
+                                  0.8,
+                                  0.9,
+                                  1.0
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        backgroundColor,
-                        backgroundColor,
-                        backgroundColor.withOpacity(0.95),
                       ],
-                      stops: const [0.0, 0.7, 1.0],
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundImage: userData?['userImage'] != null
-                            ? NetworkImage(userData!['userImage'])
-                            : null,
-                        child: userData?['userImage'] == null
-                            ? const Icon(Icons.person, size: 30)
-                            : null,
+                  if (userData != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
                       ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                userData?['firstName'] ?? 'Unknown User',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Colors.white,
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.7),
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: userData!['userImage'] != null
+                                      ? CachedNetworkImage(
+                                          imageUrl: userData!['userImage'],
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              Shimmer.fromColors(
+                                            baseColor: Colors.grey[300]!,
+                                            highlightColor: Colors.grey[100]!,
+                                            child: Container(
+                                              color: Colors.grey[300],
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) =>
+                                              Container(
+                                            color:
+                                                Colors.white.withOpacity(0.2),
+                                            child: const Icon(Icons.person,
+                                                size: 32, color: Colors.white),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: Colors.white.withOpacity(0.2),
+                                          child: const Icon(Icons.person,
+                                              size: 32, color: Colors.white),
+                                        ),
                                 ),
                               ),
-                              Text(
-                                userData?['designation'] ?? 'No designation',
-                                style: const TextStyle(
-                                    fontSize: 14, color: Colors.white70),
+                              Expanded(
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        userData!['firstName'] ??
+                                            'Unknown User',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                          shadows: [
+                                            Shadow(
+                                              offset: Offset(0, 1),
+                                              blurRadius: 2,
+                                              color:
+                                                  Color.fromARGB(80, 0, 0, 0),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            userData!['designation'] ??
+                                                'No designation',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                          Text(' '),
+                                          Text(
+                                            userData!['phone1'] ?? "No Number",
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.white,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                      Text(
+                                        userData!['email'] ?? 'No email',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.email,
-                                      size: 16, color: Colors.white70),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      userData?['email'] ?? 'No email',
-                                      style: const TextStyle(
-                                          fontSize: 14, color: Colors.white),
-                                      overflow: TextOverflow.ellipsis,
+                              if (userData!['companyLogo'] != null &&
+                                  userData!['companyLogo'].isNotEmpty)
+                                Container(
+                                  width: 52,
+                                  height: 55,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withOpacity(0.2),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.7),
+                                      width: 1,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl: userData!['companyLogo'],
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          Shimmer.fromColors(
+                                        baseColor: Colors.grey[300]!,
+                                        highlightColor: Colors.grey[100]!,
+                                        child: Container(
+                                          color: Colors.grey[300],
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(
+                                        Icons.business,
+                                        size: 24,
+                                        color: Colors.white70,
+                                      ),
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
                             ],
                           ),
-                        ),
-                      ),
-                      if (userData?['companyLogo'] != null &&
-                          userData!['companyLogo'].isNotEmpty)
-                        SizedBox(
-                          width: 80,
-                          height: 80,
-                          child: Image.network(
-                            userData!['companyLogo'],
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              print('Logo load error: $error');
-                              return const Icon(Icons.error);
-                            },
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                  child: CircularProgressIndicator());
-                            },
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [],
+                                ),
+                                if (userData!['companyWebsite'] != null &&
+                                    userData!['companyWebsite']
+                                        .toString()
+                                        .isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 0),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Center(
+                                            child: Text(
+                                              userData!['companyWebsite'],
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(14),
+                  bottomRight: Radius.circular(14),
                 ),
-              ],
+              ),
+              padding: const EdgeInsets.all(12),
+              child: TextButton.icon(
+                icon: const Icon(Icons.download, size: 20, color: Colors.white),
+                label: const Text('Download',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    )),
+                style: TextButton.styleFrom(
+                  backgroundColor: backgroundColor,
+                  minimumSize: const Size(double.infinity, 48),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => _captureAndSaveImage(photoId, photoUrl),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.download),
-              label: const Text('Download Merged Image'),
-              style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 40)),
-              onPressed: () => _captureAndSaveImage(photoId, photoUrl),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -849,36 +1060,47 @@ class _MycategoryState extends State<Mycategory> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    for (var controller in _animationControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 }
 
-
 class WatermarkPainter extends CustomPainter {
+  final Map<String, dynamic>? userData;
+
+  WatermarkPainter({this.userData});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withOpacity(0.2)
       ..style = PaintingStyle.fill;
+
+    final firstName =
+        userData != null ? userData!['firstName'] ?? 'Unknown' : 'Unknown';
+    final watermarkText = '$firstName  Maxgrow';
 
     final textPainter = TextPainter(
       text: TextSpan(
-        text: 'Generated by PhotoMerge',
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.3),
-          fontSize: 30,
-          fontWeight: FontWeight.bold,
+        text: watermarkText,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 1.0,
         ),
       ),
       textDirection: TextDirection.ltr,
     );
 
     textPainter.layout();
-
-    canvas.save();
-    canvas.translate(size.width / 2, size.height / 2);
-    canvas.rotate(-45 * 3.14159 / 180);
-    canvas.translate(-textPainter.width / 2, -textPainter.height / 2);
-    textPainter.paint(canvas, Offset.zero);
-    canvas.restore();
+    const padding = 10.0;
+    textPainter.paint(canvas, const Offset(padding, padding));
   }
 
   @override
