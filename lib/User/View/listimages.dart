@@ -1,18 +1,17 @@
-// import 'package:firebase_auth/firebase_auth.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/rendering.dart';
-import 'dart:ui' as ui;
-import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:awesome_notifications/awesome_notifications.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart'; // Added share_plus package
+import 'dart:ui' as ui;
 import 'dart:io';
 
 class ListImages extends StatefulWidget {
@@ -22,47 +21,205 @@ class ListImages extends StatefulWidget {
   State<ListImages> createState() => _ListImagesState();
 }
 
-class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
+class _ListImagesState extends State<ListImages> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String? userId = FirebaseAuth.instance.currentUser?.uid;
-  Map<String, dynamic>? userData;
-
-  // Cached maps for performance
-  final Map<String, GlobalKey> _photoKeys = {};
-  final Map<String, Color> _dominantColors = {};
-  final Map<String, AnimationController> _animationControllers = {};
-
-  // Pagination variables
-  static const int _pageSize = 10;
+  final ScrollController _scrollController = ScrollController();
+  final int _limit = 20;
   DocumentSnapshot? _lastDocument;
-  bool _isLoadingMore = false;
-  bool _hasMoreData = true;
-  final List<QueryDocumentSnapshot> _images = [];
-
-  // Layout toggle
-  bool _isGridView = false;
-
-  // Constants
-  static const String imagesSubcollection = 'images';
-  static const double fadeHeight = 120.0;
-  static const int maxColorCount = 8;
-  static const double pixelRatio = 2.0;
+  List<DocumentSnapshot> _documents = [];
+  bool _isLoading = false;
+  bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
+    _fetchImages();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoading &&
+        _hasMore) {
+      _fetchImages();
+    }
+  }
+
+  Future<void> _fetchImages() async {
+    if (_isLoading || !_hasMore) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      Query query = _firestore
+          .collectionGroup('images')
+          .orderBy('timestamp', descending: true)
+          .limit(_limit);
+
+      if (_lastDocument != null) {
+        query = query.startAfterDocument(_lastDocument!);
+      }
+
+      final snapshot = await query.get();
+      final newDocs = snapshot.docs;
+
+      setState(() {
+        _documents.addAll(newDocs);
+        _lastDocument = newDocs.isNotEmpty ? newDocs.last : null;
+        _hasMore = newDocs.length == _limit;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading more images: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF4CAF50),
+        title:
+            const Text('Photo Gallery', style: TextStyle(color: Colors.white)),
+      ),
+      body: _documents.isEmpty && _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () async {
+                setState(() {
+                  _documents.clear();
+                  _lastDocument = null;
+                  _hasMore = true;
+                });
+                await _fetchImages();
+              },
+              child: GridView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(8),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: _documents.length + (_hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _documents.length && _hasMore) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final photo =
+                      _documents[index].data() as Map<String, dynamic>;
+                  final photoId = _documents[index].id;
+                  final photoUrl = photo['image_url'] ?? '';
+
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ImageDetailView(
+                            photoId: photoId,
+                            photoUrl: photoUrl,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      clipBehavior: Clip.antiAlias,
+                      child: CachedNetworkImage(
+                        imageUrl: photoUrl,
+                        fit: BoxFit.cover,
+                        memCacheHeight: 300,
+                        placeholder: (context, url) => Shimmer.fromColors(
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
+                          child: Container(color: Colors.grey[300]),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.error,
+                              size: 48, color: Colors.red),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+    );
+  }
+}
+
+class ImageDetailView extends StatefulWidget {
+  final String photoId;
+  final String photoUrl;
+
+  const ImageDetailView(
+      {Key? key, required this.photoId, required this.photoUrl})
+      : super(key: key);
+
+  @override
+  State<ImageDetailView> createState() => _ImageDetailViewState();
+}
+
+class _ImageDetailViewState extends State<ImageDetailView>
+    with SingleTickerProviderStateMixin {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String? userId = FirebaseAuth.instance.currentUser?.uid;
+  Map<String, dynamic>? userData;
+  final GlobalKey _cardKey = GlobalKey();
+  Color _backgroundColor = Colors.grey.shade800;
+  final Map<String, Color> _dominantColors = {};
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  // Constants
+  static const double pixelRatio = 2.0;
+  static const double a4Width = 1653.0;
+  static const double a4Height = 2339.0;
+  static const int maxColorCount = 16;
+  static const double fadeHeight = 100.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    )..forward();
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
     _getUserData();
-    _loadInitialImages();
-    // Initialize AwesomeNotifications
+    _fetchDominantColor();
     AwesomeNotifications().initialize(
-      null, // No default icon
+      null,
       [
         NotificationChannel(
           channelKey: 'basic_channel',
           channelName: 'Basic Notifications',
-          channelDescription: 'Notification channel for general alerts',
-          importance: NotificationImportance.High,
-          enableVibration: true,
+          channelDescription: 'Notification channel for basic notifications',
+          defaultColor: const Color(0xFF4CAF50),
+          ledColor: Colors.white,
         ),
       ],
     );
@@ -70,9 +227,8 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _animationControllers.forEach((key, controller) {
-      controller.dispose();
-    });
+    _animationController.dispose();
+    _dominantColors.clear();
     super.dispose();
   }
 
@@ -88,75 +244,9 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _loadInitialImages() async {
-    if (_isLoadingMore) return;
-    setState(() => _isLoadingMore = true);
-
-    try {
-      final query = _firestore
-          .collectionGroup(imagesSubcollection)
-          .orderBy('timestamp', descending: true)
-          .limit(_pageSize);
-
-      final snapshot = await query.get();
-      setState(() {
-        _images.addAll(snapshot.docs);
-        _lastDocument = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
-        _hasMoreData = snapshot.docs.length == _pageSize;
-        _isLoadingMore = false;
-      });
-
-      for (var doc in snapshot.docs) {
-        _createAnimationController(doc.id);
-      }
-    } catch (e) {
-      print('Error loading images: $e');
-      setState(() => _isLoadingMore = false);
-    }
-  }
-
-  Future<void> _loadMoreImages() async {
-    if (_isLoadingMore || !_hasMoreData || _lastDocument == null) return;
-    setState(() => _isLoadingMore = true);
-
-    try {
-      final query = _firestore
-          .collectionGroup(imagesSubcollection)
-          .orderBy('timestamp', descending: true)
-          .startAfterDocument(_lastDocument!)
-          .limit(_pageSize);
-
-      final snapshot = await query.get();
-      setState(() {
-        _images.addAll(snapshot.docs);
-        _lastDocument = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
-        _hasMoreData = snapshot.docs.length == _pageSize;
-        _isLoadingMore = false;
-      });
-
-      for (var doc in snapshot.docs) {
-        _createAnimationController(doc.id);
-      }
-    } catch (e) {
-      print('Error loading more images: $e');
-      setState(() => _isLoadingMore = false);
-    }
-  }
-
-  void _createAnimationController(String id) {
-    if (!_animationControllers.containsKey(id)) {
-      final controller = AnimationController(
-        duration: const Duration(milliseconds: 300),
-        vsync: this,
-      );
-      _animationControllers[id] = controller;
-      Future.delayed(
-          Duration(milliseconds: 50 * _animationControllers.length % 10), () {
-        if (mounted && controller.isAnimating != true) {
-          controller.forward();
-        }
-      });
-    }
+  Future<void> _fetchDominantColor() async {
+    final color = await _getDominantColor(widget.photoUrl);
+    setState(() => _backgroundColor = color);
   }
 
   Future<Color> _getDominantColor(String imageUrl) async {
@@ -285,8 +375,9 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
             );
           }
 
-          final key = _photoKeys[photoId];
-          if (key == null || key.currentContext == null) {
+          final boundary = _cardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+          if (boundary == null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -295,12 +386,6 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
             }
             return;
           }
-
-          final boundary =
-              key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-          // A4 dimensions in pixels at 300 DPI (scaled for performance)
-          const double a4Width = 2480.0;
-          const double a4Height = 3508.0;
 
           // Capture the content
           final image = await boundary.toImage(pixelRatio: pixelRatio);
@@ -422,8 +507,9 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
             );
           }
 
-          final key = _photoKeys[photoId];
-          if (key == null || key.currentContext == null) {
+          final boundary = _cardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+          if (boundary == null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -433,15 +519,13 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
             return;
           }
 
-          final boundary =
-              key.currentContext!.findRenderObject() as RenderRepaintBoundary;
           final image = await boundary.toImage(pixelRatio: pixelRatio);
           final byteData =
               await image.toByteData(format: ui.ImageByteFormat.png);
           if (byteData == null) throw Exception('Failed to capture image data');
 
           final tempDir = await Directory.systemTemp.createTemp();
-          final tempFile = File('${tempDir.path}/share_image_${photoId}.png');
+          final tempFile = File('${tempDir.path}/share_image_$photoId.png');
           await tempFile.writeAsBytes(byteData.buffer.asUint8List());
 
           await Share.shareXFiles(
@@ -620,31 +704,18 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
 
   Widget _buildPhotoCard(
       String photoId, String photoUrl, Color backgroundColor) {
-    if (!_photoKeys.containsKey(photoId)) {
-      _photoKeys[photoId] = GlobalKey();
-    }
-
-    final AnimationController animController = _animationControllers[photoId] ??
-        AnimationController(duration: Duration.zero, vsync: this)
-      ..forward();
-    final Animation<double> fadeAnimation = CurvedAnimation(
-      parent: animController,
-      curve: Curves.easeInOut,
-    );
-
     return AnimatedBuilder(
-      animation: fadeAnimation,
+      animation: _fadeAnimation,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, 20 * (1 - fadeAnimation.value)),
+          offset: Offset(0, 20 * (1 - _fadeAnimation.value)),
           child: Opacity(
-            opacity: fadeAnimation.value,
+            opacity: _fadeAnimation.value,
             child: child,
           ),
         );
       },
       child: Card(
-        key: ValueKey(photoId),
         elevation: 6,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -652,7 +723,7 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
         child: Column(
           children: [
             RepaintBoundary(
-              key: _photoKeys[photoId],
+              key: _cardKey,
               child: Column(
                 children: [
                   AspectRatio(
@@ -660,29 +731,25 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Hero(
-                          tag: 'photo_$photoId',
-                          child: CachedNetworkImage(
-                            imageUrl: photoUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            memCacheHeight: 800, // Higher resolution cache
-                            placeholder: (context, url) => Shimmer.fromColors(
-                              baseColor: Colors.grey[300]!,
-                              highlightColor: Colors.grey[100]!,
-                              child: Container(color: Colors.grey[300]),
-                            ),
-                            errorWidget: (context, url, error) {
-                              print('Image load error for $url: $error');
-                              return Container(
-                                color: Colors.grey[200],
-                                child: const Center(
-                                  child: Icon(Icons.error,
-                                      size: 48, color: Colors.red),
-                                ),
-                              );
-                            },
+                        CachedNetworkImage(
+                          imageUrl: photoUrl,
+                          fit: BoxFit.cover,
+                          memCacheHeight: 1200,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.grey[300]),
                           ),
+                          errorWidget: (context, url, error) {
+                            print('Image load error for $url: $error');
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: Icon(Icons.error,
+                                    size: 48, color: Colors.red),
+                              ),
+                            );
+                          },
                         ),
                         Positioned.fill(
                           child: CustomPaint(
@@ -767,8 +834,7 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                                                 Colors.white.withOpacity(0.2),
                                             child: const Center(
                                               child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
+                                                  strokeWidth: 2),
                                             ),
                                           ),
                                           errorWidget: (context, url, error) =>
@@ -810,33 +876,30 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                                             ),
                                           ],
                                         ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            userData!['designation'] ??
-                                                'No designation',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                          Text(' '),
-                                          Text(
-                                            userData!['phone1'] ?? "No Number",
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.white,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
+                                      Text(
+                                        userData!['designation'] ??
+                                            'No designation',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white70,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        userData!['phone1'] ?? 'No Number',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white70,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       Text(
                                         userData!['email'] ?? 'No email',
                                         style: const TextStyle(
                                           fontSize: 12,
-                                          color: Colors.white,
+                                          color: Colors.white70,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -847,8 +910,8 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                               if (userData!['companyLogo'] != null &&
                                   userData!['companyLogo'].isNotEmpty)
                                 Container(
-                                  width: 52,
-                                  height: 55,
+                                  width: 48,
+                                  height: 48,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: Colors.white.withOpacity(0.2),
@@ -887,47 +950,26 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [],
-                                ),
-                                if (userData!['companyWebsite'] != null &&
-                                    userData!['companyWebsite']
-                                        .toString()
-                                        .isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 0),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Center(
-                                            child: Text(
-                                              userData!['companyWebsite'],
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                          if (userData!['companyWebsite'] != null &&
+                              userData!['companyWebsite'].toString().isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  userData!['companyWebsite'],
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
                                   ),
-                              ],
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -935,9 +977,9 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
               ),
             ),
             Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(14),
                   bottomRight: Radius.circular(14),
                 ),
@@ -949,12 +991,14 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                     child: TextButton.icon(
                       icon: const Icon(Icons.download,
                           size: 20, color: Colors.white),
-                      label: const Text('Download',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          )),
+                      label: const Text(
+                        'Download',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                       style: TextButton.styleFrom(
                         backgroundColor: backgroundColor,
                         minimumSize: const Size(double.infinity, 48),
@@ -970,12 +1014,14 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
                     child: TextButton.icon(
                       icon: const Icon(Icons.share,
                           size: 20, color: Colors.white),
-                      label: const Text('Share',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          )),
+                      label: const Text(
+                        'Share',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                       style: TextButton.styleFrom(
                         backgroundColor: backgroundColor,
                         minimumSize: const Size(double.infinity, 48),
@@ -995,144 +1041,23 @@ class _ListImagesState extends State<ListImages> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildGridView() {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification is ScrollEndNotification &&
-            notification.metrics.extentAfter < 500) {
-          _loadMoreImages();
-        }
-        return false;
-      },
-      child: GridView.builder(
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 0.7,
-        ),
-        itemCount: _images.length + (_hasMoreData ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _images.length) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final photo = _images[index].data() as Map<String, dynamic>;
-          final photoId = _images[index].id;
-          final photoUrl = photo['image_url'] ?? '';
-          return FutureBuilder<Color>(
-            future: _getDominantColor(photoUrl),
-            builder: (context, colorSnapshot) {
-              if (!colorSnapshot.hasData) {
-                return Shimmer.fromColors(
-                  baseColor: Colors.grey[300]!,
-                  highlightColor: Colors.grey[100]!,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-              }
-              return _buildPhotoCard(photoId, photoUrl, colorSnapshot.data!);
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildListView() {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification is ScrollEndNotification &&
-            notification.metrics.extentAfter < 500) {
-          _loadMoreImages();
-        }
-        return false;
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _images.length + (_hasMoreData ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _images.length) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-          final photo = _images[index].data() as Map<String, dynamic>;
-          final photoId = _images[index].id;
-          final photoUrl = photo['image_url'] ?? '';
-          return FutureBuilder<Color>(
-            future: _getDominantColor(photoUrl),
-            builder: (context, colorSnapshot) {
-              if (!colorSnapshot.hasData) {
-                return Shimmer.fromColors(
-                  baseColor: Colors.grey[300]!,
-                  highlightColor: Colors.grey[100]!,
-                  child: Container(
-                    height: 400,
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-              }
-              return _buildPhotoCard(photoId, photoUrl, colorSnapshot.data!);
-            },
-          );
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4CAF50),
-        title: const Text('Photo Gallery',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _images.clear();
-                _lastDocument = null;
-                _hasMoreData = true;
-                _animationControllers.forEach((key, controller) {
-                  controller.dispose();
-                });
-                _animationControllers.clear();
-              });
-              _loadInitialImages();
-              _getUserData();
-            },
-          ),
-        ],
+        backgroundColor: const Color(0xFF4CAF50),
+        title:
+            const Text('Image Details', style: TextStyle(color: Colors.white)),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.grey.shade100, Colors.grey.shade200],
-          ),
-        ),
-        child: userData == null
-            ? const Center(child: CircularProgressIndicator())
-            : _isGridView
-                ? _buildGridView()
-                : _buildListView(),
-      ),
+      body: userData == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _buildPhotoCard(
+                    widget.photoId, widget.photoUrl, _backgroundColor),
+              ),
+            ),
     );
   }
 }
@@ -1144,31 +1069,17 @@ class WatermarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
-      ..style = PaintingStyle.fill;
-
-    final firstName =
-        userData != null ? userData!['firstName'] ?? 'Unknown' : 'Unknown';
-    final watermarkText = '$firstName  Maxgrow';
-
     final textPainter = TextPainter(
       text: TextSpan(
-        text: watermarkText,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 14, // Slightly smaller to fit top-left
-          fontWeight: FontWeight.w400,
-          letterSpacing: 1.0,
-        ),
+        text: userData?['firstName'] != null
+            ? '${userData!['firstName']} Maxgrow'
+            : 'Maxgrow',
+        style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
     );
-
     textPainter.layout();
-    // Position at top-left with a small padding
-    const padding = 10.0;
-    textPainter.paint(canvas, const Offset(padding, padding));
+    textPainter.paint(canvas, const Offset(8, 8));
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:photomerge/Admin/add_posters.dart';
+import 'package:photomerge/Admin/add_vediourl.dart';
 import 'package:photomerge/Admin/addcarousel.dart';
 import 'package:photomerge/Admin/adminhome.dart';
 import 'package:photomerge/Admin/create_admin.dart';
@@ -14,6 +15,7 @@ import 'package:photomerge/User/View/about.dart';
 import 'package:photomerge/User/View/categorylist.dart';
 import 'package:photomerge/User/View/home.dart';
 import 'package:photomerge/User/View/listimages.dart';
+import 'package:photomerge/User/View/myvedios.dart';
 import 'package:photomerge/User/View/profile.dart';
 import 'package:photomerge/User/View/support.dart';
 import 'package:photomerge/User/View/usersubscription.dart';
@@ -64,6 +66,8 @@ class MyApp extends StatelessWidget {
         '/carousel': (context) => AdminImageUploadPage(),
         '/about': (context) => AboutPage(),
         '/support': (context) => SupportPage(),
+        '/vediourl': (context) => AddVediourl(),
+        '/listvedios': (context) => AllVideosPage(),
       },
     );
   }

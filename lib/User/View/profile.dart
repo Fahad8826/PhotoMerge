@@ -22,7 +22,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Modern color palette
   static const Color primaryColor = Color(0xFF4CAF50);
-  static const Color accentColor = Color(0xFF26A69A);
   static const Color backgroundColor = Color(0xFFF8FAFC);
   static const Color cardColor = Colors.white;
   static const Color textColor = Color(0xFF1A1A1A);
@@ -268,8 +267,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'email': _emailController.text.trim(),
         'phone1': _phoneController.text.trim(),
         'gender': _selectedGender,
-        'dob':
-            _selectedDate != null ? Timestamp.fromDate(_selectedDate!) : null,
+        'dob': _selectedDate != null ? Timestamp.fromDate(_selectedDate!) : null,
         'companyName': _companyNameController.text.trim(),
         'designation': _designationController.text.trim(),
         'companyWebsite': _websitecontroller.text.trim(),
