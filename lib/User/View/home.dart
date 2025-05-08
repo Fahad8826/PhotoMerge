@@ -951,7 +951,7 @@ class _UserDashboardState extends State<UserDashboard> {
                     final videoData =
                         videos[index].data() as Map<String, dynamic>;
                     final videoUrl = videoData['url'] as String? ?? '';
-                    final title = videoData['title'] as String? ?? 'Untitled';
+                    final title = videoData['name'] as String? ?? 'Untitled';
                     final timestamp = videoData['timestamp'] as Timestamp?;
                     final timeAgo = timestamp != null
                         ? _getTimeAgo(timestamp.toDate())
