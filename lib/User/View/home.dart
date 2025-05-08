@@ -142,7 +142,7 @@ class _UserDashboardState extends State<UserDashboard> {
               SliverToBoxAdapter(child: _buildCategoriesSection()),
               SliverToBoxAdapter(child: _buildRecentImagesSection()),
               SliverToBoxAdapter(child: _buildRecentVideosSection()),
-              SliverToBoxAdapter(child: _buildFeaturedCollectionsSection()),
+              SliverToBoxAdapter(child: _buildManageProfileSection(context)),
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           ),
@@ -885,7 +885,7 @@ class _UserDashboardState extends State<UserDashboard> {
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/videos');
+                  Navigator.pushNamed(context, '/listvedios');
                 },
                 style: TextButton.styleFrom(
                   padding:
@@ -1075,14 +1075,14 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  Widget _buildFeaturedCollectionsSection() {
+  Widget _buildManageProfileSection(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Featured Collections',
+            'Manage Account',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
@@ -1110,7 +1110,7 @@ class _UserDashboardState extends State<UserDashboard> {
                   right: -20,
                   bottom: -20,
                   child: Icon(
-                    Icons.photo_library,
+                    Icons.person,
                     size: 100,
                     color: Colors.white.withOpacity(0.2),
                   ),
@@ -1126,7 +1126,7 @@ class _UserDashboardState extends State<UserDashboard> {
                           children: [
                             Flexible(
                               child: Text(
-                                'Organize Your Collection',
+                                'Personalize Your Profile',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize:
@@ -1142,7 +1142,7 @@ class _UserDashboardState extends State<UserDashboard> {
                             const SizedBox(height: 6),
                             Flexible(
                               child: Text(
-                                'Create albums and manage your photos easily',
+                                'Update your info and customize settings',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize:
@@ -1157,7 +1157,7 @@ class _UserDashboardState extends State<UserDashboard> {
                             const SizedBox(height: 8),
                             ElevatedButton(
                               onPressed: () {
-                                Navigator.pushNamed(context, '/Category');
+                                Navigator.pushNamed(context, '/profile');
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
@@ -1173,7 +1173,7 @@ class _UserDashboardState extends State<UserDashboard> {
                                 minimumSize: const Size(100, 32),
                               ),
                               child: const Text(
-                                'Get Started',
+                                'Edit Profile',
                                 style: TextStyle(fontSize: 12),
                               ),
                             ),
@@ -1236,14 +1236,19 @@ class GallerySearchDelegate extends SearchDelegate {
   @override
   ThemeData appBarTheme(BuildContext context) {
     return ThemeData(
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: _UserDashboardState.primaryColor,
         foregroundColor: _UserDashboardState.textColor,
+        elevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
-        hintStyle:
-            TextStyle(color: _UserDashboardState.textColor.withOpacity(0.6)),
+        hintStyle: TextStyle(
+          color: _UserDashboardState.textColor.withOpacity(0.6),
+          fontWeight: FontWeight.normal,
+        ),
         border: InputBorder.none,
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       ),
     );
   }
@@ -1252,7 +1257,7 @@ class GallerySearchDelegate extends SearchDelegate {
   List<Widget> buildActions(BuildContext context) {
     return [
       IconButton(
-        icon: const Icon(Icons.clear),
+        icon: Icon(Icons.clear, color: _UserDashboardState.textColor),
         onPressed: () {
           query = '';
         },
@@ -1263,7 +1268,7 @@ class GallerySearchDelegate extends SearchDelegate {
   @override
   Widget buildLeading(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.arrow_back),
+      icon: Icon(Icons.arrow_back, color: _UserDashboardState.textColor),
       onPressed: () {
         close(context, null);
       },
@@ -1284,43 +1289,115 @@ class GallerySearchDelegate extends SearchDelegate {
     if (query.isEmpty) {
       return Container(
         color: _UserDashboardState.secondaryColor,
-        child: const Center(child: Text('Enter a search term')),
+        child: Center(
+          child: Text(
+            'Enter a search term',
+            style: TextStyle(
+              color: _UserDashboardState.textColor.withOpacity(0.7),
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
       );
     }
 
     return Container(
       color: _UserDashboardState.secondaryColor,
       child: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('categories')
-            .where('name', isGreaterThanOrEqualTo: query)
-            .where('name', isLessThanOrEqualTo: '$query\uf8ff')
-            .snapshots(),
+        stream: _firestore.collection('categories').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(
-                  color: _UserDashboardState.accentColor),
+                color: _UserDashboardState.accentColor,
+              ),
             );
           }
           if (snapshot.hasError) {
-            return const Center(child: Text('Error loading suggestions'));
+            return Center(
+              child: Text(
+                'Error loading suggestions',
+                style: TextStyle(
+                  color: _UserDashboardState.textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            );
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No suggestions found'));
+            return Center(
+              child: Text(
+                'No suggestions found',
+                style: TextStyle(
+                  color: _UserDashboardState.textColor.withOpacity(0.7),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            );
           }
-          final categories = snapshot.data!.docs;
+          // Filter categories client-side for case-insensitive matching
+          final searchQuery = query.toLowerCase();
+          final categories = snapshot.data!.docs.where((doc) {
+            final name = (doc['name'] as String? ?? '').toLowerCase();
+            return name.contains(searchQuery);
+          }).toList();
+
+          if (categories.isEmpty) {
+            return Center(
+              child: Text(
+                'No suggestions found',
+                style: TextStyle(
+                  color: _UserDashboardState.textColor.withOpacity(0.7),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            );
+          }
+
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: categories.length,
             itemBuilder: (context, index) {
               final categoryData =
                   categories[index].data() as Map<String, dynamic>;
               final name =
                   categoryData['name'] as String? ?? 'Category ${index + 1}';
+              final imageUrl = categoryData['image_url'] as String?;
               return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: ListTile(
-                  title: Text(name),
+                  leading: imageUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            imageUrl,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.category,
+                              color: _UserDashboardState.accentColor,
+                              size: 40,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.category,
+                          color: _UserDashboardState.accentColor,
+                          size: 40,
+                        ),
+                  title: Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: _UserDashboardState.textColor,
+                    ),
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,

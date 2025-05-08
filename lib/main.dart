@@ -1,6 +1,7 @@
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:lottie/lottie.dart';
 import 'package:photomerge/Admin/add_posters.dart';
 import 'package:photomerge/Admin/add_vediourl.dart';
 import 'package:photomerge/Admin/addcarousel.dart';
@@ -77,7 +78,8 @@ class LoadingOverlay extends StatelessWidget {
   final bool isLoading;
   final Widget child;
 
-  const LoadingOverlay({required this.isLoading, required this.child});
+  const LoadingOverlay(
+      {required this.isLoading, required this.child, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -88,14 +90,12 @@ class LoadingOverlay extends StatelessWidget {
           Container(
             color: Colors.white
                 .withOpacity(0.4), // Light, semi-transparent background
-            child: const Center(
-              child: Text(
-                'Loading...',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.bold,
-                ),
+            child: Center(
+              child: Lottie.asset(
+                'assets/animations/empty_gallery.json', // Example Lottie animation URL
+                width: 100, // Adjust size as needed
+                height: 100,
+                fit: BoxFit.contain,
               ),
             ),
           ),

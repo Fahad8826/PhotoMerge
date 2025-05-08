@@ -267,7 +267,8 @@ class _ProfilePageState extends State<ProfilePage> {
         'email': _emailController.text.trim(),
         'phone1': _phoneController.text.trim(),
         'gender': _selectedGender,
-        'dob': _selectedDate != null ? Timestamp.fromDate(_selectedDate!) : null,
+        'dob':
+            _selectedDate != null ? Timestamp.fromDate(_selectedDate!) : null,
         'companyName': _companyNameController.text.trim(),
         'designation': _designationController.text.trim(),
         'companyWebsite': _websitecontroller.text.trim(),
