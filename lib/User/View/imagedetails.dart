@@ -42,8 +42,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
 
   // Constants
   static const double pixelRatio = 2.0;
-  static const double a4Width = 1653.0;
-  static const double a4Height = 2339.0;
+  static const double a4Width = 1080.0;
+  static const double a4Height = 1350.0;
   static const int maxColorCount = 16;
   static const double fadeHeight = 100.0;
 

@@ -1,20 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AddVediourl extends StatefulWidget {
-  const AddVediourl({super.key});
+class UpdateVideoPage extends StatefulWidget {
+  final String videoId;
+  final Map<String, dynamic> videoData;
+
+  const UpdateVideoPage({
+    super.key,
+    required this.videoId,
+    required this.videoData,
+  });
 
   @override
-  State<AddVediourl> createState() => _AddVediourlState();
+  State<UpdateVideoPage> createState() => _UpdateVideoPageState();
 }
 
-class _AddVediourlState extends State<AddVediourl> {
+class _UpdateVideoPageState extends State<UpdateVideoPage> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
-  final _firebaseAuth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  String? _selectedCategory;
   bool _isLoading = false;
+
+  // List of categories for the dropdown
+  final List<String> _categories = [
+    'Tutorial',
+    'Entertainment',
+    'Vlog',
+    'Gaming',
+    'Music',
+    'Other',
+  ];
 
   // Regular expression for validating YouTube URLs
   final _youtubeUrlPattern = RegExp(
@@ -23,15 +38,25 @@ class _AddVediourlState extends State<AddVediourl> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    // Pre-populate fields with existing data
+    _urlController.text = widget.videoData['url'] ?? '';
+    _nameController.text = widget.videoData['name'] ?? '';
+    _selectedCategory = widget.videoData['category'] ?? _categories[0];
+  }
+
+  @override
   void dispose() {
     _urlController.dispose();
     _nameController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitUrl() async {
+  Future<void> _updateVideo() async {
     final url = _urlController.text.trim();
     final name = _nameController.text.trim();
+    final category = _selectedCategory;
 
     // Validate inputs
     if (name.isEmpty) {
@@ -55,32 +80,36 @@ class _AddVediourlState extends State<AddVediourl> {
       return;
     }
 
+    if (category == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a category')),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final currentUser = _firebaseAuth.currentUser;
-      if (currentUser == null) {
-        throw Exception('No user signed in');
-      }
-
-      // Store URL and name in Firestore
-      await _firestore.collection('videos').add({
+      // Update video in Firestore
+      await FirebaseFirestore.instance
+          .collection('videos')
+          .doc(widget.videoId)
+          .update({
         'url': url,
         'name': name,
-        'userId': currentUser.uid,
+        'category': category,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('YouTube video added successfully')),
+        const SnackBar(content: Text('Video updated successfully')),
       );
-      _urlController.clear();
-      _nameController.clear();
+      Navigator.pop(context); // Return to VideoListPage
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding video: $e')),
+        SnackBar(content: Text('Error updating video: $e')),
       );
     } finally {
       setState(() {
@@ -91,33 +120,11 @@ class _AddVediourlState extends State<AddVediourl> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = _firebaseAuth.currentUser;
-    if (currentUser == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'Add YouTube Video',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          backgroundColor: const Color(0xFF4CAF50),
-        ),
-        body: const Center(
-          child: Text('Please sign in to add YouTube videos'),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Add YouTube Video',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          'Update YouTube Video',
+          style: TextStyle(color: Colors.white),
         ),
         backgroundColor: const Color(0xFF4CAF50),
       ),
@@ -127,7 +134,7 @@ class _AddVediourlState extends State<AddVediourl> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Add YouTube Video',
+              'Update YouTube Video',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -156,6 +163,27 @@ class _AddVediourlState extends State<AddVediourl> {
               ),
               keyboardType: TextInputType.url,
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.category, color: Color(0xFF4CAF50)),
+              ),
+              hint: const Text('Select a category'),
+              items: _categories.map((category) {
+                return DropdownMenuItem(
+                  value: category,
+                  child: Text(category),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategory = value;
+                });
+              },
+            ),
             const SizedBox(height: 16),
             _isLoading
                 ? const Center(
@@ -164,13 +192,13 @@ class _AddVediourlState extends State<AddVediourl> {
                     ),
                   )
                 : ElevatedButton(
-                    onPressed: _submitUrl,
+                    onPressed: _updateVideo,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),
                       minimumSize: const Size(double.infinity, 48),
                     ),
                     child: const Text(
-                      'Submit',
+                      'Update',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,

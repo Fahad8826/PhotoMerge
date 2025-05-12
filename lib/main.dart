@@ -2,13 +2,13 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:lottie/lottie.dart';
-import 'package:photomerge/Admin/add_posters.dart';
-import 'package:photomerge/Admin/add_vediourl.dart';
-import 'package:photomerge/Admin/addcarousel.dart';
+import 'package:photomerge/Admin/images/add_posters.dart';
+import 'package:photomerge/Admin/vedios/add_vediourl.dart';
+import 'package:photomerge/Admin/images/addcarousel.dart';
 import 'package:photomerge/Admin/adminhome.dart';
 import 'package:photomerge/Admin/create_admin.dart';
-import 'package:photomerge/Admin/listusers.dart';
-import 'package:photomerge/Admin/subscriptionmanage.dart';
+import 'package:photomerge/Admin/userManagement/listusers.dart';
+import 'package:photomerge/Admin/userManagement/subscriptionmanage.dart';
 import 'package:photomerge/Authentication/authservice.dart';
 import 'package:photomerge/Authentication/signin.dart';
 import 'package:photomerge/Authentication/signup.dart';
@@ -20,6 +20,8 @@ import 'package:photomerge/User/View/myvedios.dart';
 import 'package:photomerge/User/View/profile.dart';
 import 'package:photomerge/User/View/support.dart';
 import 'package:photomerge/User/View/usersubscription.dart';
+
+import 'Admin/vedios/listvedios.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,6 +71,7 @@ class MyApp extends StatelessWidget {
         '/support': (context) => SupportPage(),
         '/vediourl': (context) => AddVediourl(),
         '/listvedios': (context) => AllVideosPage(),
+        '/adminlistvedio': (context) => VideoListPage(),
       },
     );
   }
