@@ -41,9 +41,12 @@ class _ImageDetailViewState extends State<ImageDetailView>
   late Animation<double> _fadeAnimation;
 
   // Constants
-  static const double pixelRatio = 2.0;
-  static const double a4Width = 1080.0;
-  static const double a4Height = 1350.0;
+  static const double pixelRatio = 3.0;
+  // static const double a4Width = 1080.0;
+  // static const double a4Height = 1350.0;
+  static const double a4Width =
+      2000.0; // Scaled up for poster size (e.g., equivalent to ~A2 or custom)
+  static const double a4Height = 3054.0; // Maintains A4 aspect ratio (1:1.414)
   static const int maxColorCount = 16;
   static const double fadeHeight = 100.0;
 
