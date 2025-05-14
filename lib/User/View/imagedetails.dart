@@ -652,20 +652,17 @@ class _ImageDetailViewState extends State<ImageDetailView>
                         color: backgroundColor,
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.start,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
-                                width: 48,
-                                height: 48,
+                                width: 58,
+                                height: 68,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.7),
-                                    width: 2,
-                                  ),
+                                  borderRadius: BorderRadius.circular(5),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.2),
@@ -675,8 +672,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                   ],
                                 ),
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: userData!['userImage'] != null
+                                  borderRadius: BorderRadius.circular(5),
+                                  child: userData!['userImage'] != null &&
+                                          userData!['userImage']
+                                              .toString()
+                                              .isNotEmpty
                                       ? CachedNetworkImage(
                                           imageUrl: userData!['userImage'],
                                           fit: BoxFit.cover,
@@ -704,80 +704,68 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                         ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Expanded(
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        userData!['firstName'] ??
-                                            'Unknown User',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Colors.white,
-                                          shadows: [
-                                            Shadow(
-                                              offset: Offset(0, 1),
-                                              blurRadius: 2,
-                                              color:
-                                                  Color.fromARGB(80, 0, 0, 0),
-                                            ),
-                                          ],
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      userData!['firstName'] ?? 'Unknown User',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Colors.white,
+                                        shadows: [
+                                          Shadow(
+                                            offset: Offset(0, 1),
+                                            blurRadius: 2,
+                                            color: Color.fromARGB(80, 0, 0, 0),
+                                          ),
+                                        ],
                                       ),
-                                      Text(
-                                        userData!['designation'] ??
-                                            'No designation',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white70,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      userData!['designation'] ??
+                                          'No designation',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white70,
                                       ),
-                                      Text(
-                                        userData!['phone1'] ?? 'No Number',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white70,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      userData!['phone1'] ?? 'No Number',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white70,
                                       ),
-                                      Text(
-                                        userData!['email'] ?? 'No email',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white70,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      userData!['email'] ?? 'No email',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white70,
                                       ),
-                                    ],
-                                  ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
                               if (userData!['companyLogo'] != null &&
-                                  userData!['companyLogo'].isNotEmpty)
+                                  userData!['companyLogo']
+                                      .toString()
+                                      .isNotEmpty)
                                 Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: Colors.white.withOpacity(0.2),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.7),
-                                      width: 1,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 3,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
                                   ),
                                   child: ClipOval(
                                     child: CachedNetworkImage(
@@ -801,15 +789,22 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(
+                              height:
+                                  16), // Increased to move companyWebsite lower
                           if (userData!['companyWebsite'] != null &&
                               userData!['companyWebsite'].toString().isNotEmpty)
                             Container(
+                              width: double.infinity,
                               padding: const EdgeInsets.symmetric(
                                   vertical: 8, horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: Colors.white70,
+                                    width: 1,
+                                  ),
+                                ),
                               ),
                               child: Center(
                                 child: Text(
@@ -818,6 +813,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     fontSize: 12,
                                     color: Colors.white,
                                   ),
+                                  maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),

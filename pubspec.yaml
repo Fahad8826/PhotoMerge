@@ -88,6 +88,9 @@ flutter:
   - assets/animations/error.json
   - assets/animations/empty_gallery.json
   - assets/animations/logo.json
+  - assets/animations/reg.json
+  - assets/animations/image_generating.json
+
     
 
   # An image asset can refer to one or more resolution-specific "variants", see

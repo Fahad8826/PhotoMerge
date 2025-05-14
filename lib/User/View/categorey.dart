@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:photomerge/User/View/home.dart';
 import 'package:photomerge/User/View/imagedetails.dart';
-import 'package:photomerge/User/View/listimages.dart';
 import 'package:shimmer/shimmer.dart';
 
 class Mycategory extends StatefulWidget {

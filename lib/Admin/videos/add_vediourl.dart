@@ -1,24 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class UpdateVideoPage extends StatefulWidget {
-  final String videoId;
-  final Map<String, dynamic> videoData;
-
-  const UpdateVideoPage({
-    super.key,
-    required this.videoId,
-    required this.videoData,
-  });
+class AddVediourl extends StatefulWidget {
+  const AddVediourl({super.key});
 
   @override
-  State<UpdateVideoPage> createState() => _UpdateVideoPageState();
+  State<AddVediourl> createState() => _AddVediourlState();
 }
 
-class _UpdateVideoPageState extends State<UpdateVideoPage> {
+class _AddVediourlState extends State<AddVediourl> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
-  String? _selectedCategory;
+  final _firebaseAuth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+  String? _selectedCategory; // Store selected category
   bool _isLoading = false;
 
   // List of categories for the dropdown
@@ -38,22 +34,13 @@ class _UpdateVideoPageState extends State<UpdateVideoPage> {
   );
 
   @override
-  void initState() {
-    super.initState();
-    // Pre-populate fields with existing data
-    _urlController.text = widget.videoData['url'] ?? '';
-    _nameController.text = widget.videoData['name'] ?? '';
-    _selectedCategory = widget.videoData['category'] ?? _categories[0];
-  }
-
-  @override
   void dispose() {
     _urlController.dispose();
     _nameController.dispose();
     super.dispose();
   }
 
-  Future<void> _updateVideo() async {
+  Future<void> _submitUrl() async {
     final url = _urlController.text.trim();
     final name = _nameController.text.trim();
     final category = _selectedCategory;
@@ -92,24 +79,31 @@ class _UpdateVideoPageState extends State<UpdateVideoPage> {
     });
 
     try {
-      // Update video in Firestore
-      await FirebaseFirestore.instance
-          .collection('videos')
-          .doc(widget.videoId)
-          .update({
+      final currentUser = _firebaseAuth.currentUser;
+      if (currentUser == null) {
+        throw Exception('No user signed in');
+      }
+
+      // Store URL, name, category, and userId in Firestore
+      await _firestore.collection('videos').add({
         'url': url,
         'name': name,
         'category': category,
+        'userId': currentUser.uid,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video updated successfully')),
+        const SnackBar(content: Text('YouTube video added successfully')),
       );
-      Navigator.pop(context); // Return to VideoListPage
+      _urlController.clear();
+      _nameController.clear();
+      setState(() {
+        _selectedCategory = null; // Reset category
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating video: $e')),
+        SnackBar(content: Text('Error adding video: $e')),
       );
     } finally {
       setState(() {
@@ -120,12 +114,51 @@ class _UpdateVideoPageState extends State<UpdateVideoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = _firebaseAuth.currentUser;
+    if (currentUser == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Add YouTube Video',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor: const Color(0xFF4CAF50),
+        ),
+        body: const Center(
+          child: Text('Please sign in to add YouTube videos'),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Update YouTube Video',
-          style: TextStyle(color: Colors.white),
+          'Add YouTube Video',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(
+              Icons.arrow_back,
+              color: Colors.white,
+            )),
+        actions: [
+          IconButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/adminlistvedio');
+              },
+              icon: Icon(
+                Icons.list,
+                color: Colors.white,
+              ))
+        ],
         backgroundColor: const Color(0xFF4CAF50),
       ),
       body: Padding(
@@ -134,7 +167,7 @@ class _UpdateVideoPageState extends State<UpdateVideoPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Update YouTube Video',
+              'Add YouTube Video',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -169,7 +202,8 @@ class _UpdateVideoPageState extends State<UpdateVideoPage> {
               decoration: InputDecoration(
                 labelText: 'Category',
                 border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.category, color: Color(0xFF4CAF50)),
+                prefixIcon:
+                    const Icon(Icons.category, color: Color(0xFF4CAF50)),
               ),
               hint: const Text('Select a category'),
               items: _categories.map((category) {
@@ -192,20 +226,20 @@ class _UpdateVideoPageState extends State<UpdateVideoPage> {
                     ),
                   )
                 : ElevatedButton(
-                    onPressed: _updateVideo,
+                    onPressed: _submitUrl,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),
                       minimumSize: const Size(double.infinity, 48),
                     ),
                     child: const Text(
-                      'Update',
+                      'Submit',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
+                  )
           ],
         ),
       ),

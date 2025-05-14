@@ -40,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
     try {
       String? email;
 
-      // Check if input is an email
+      // Basic check to see if input is an email
       final isEmail =
           RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(input);
 
@@ -56,29 +56,23 @@ class _LoginPageState extends State<LoginPage> {
 
         if (querySnapshot.docs.isEmpty) {
           setState(() {
-            _error = 'No user found with this phone number';
+            _error = 'No user found with this phone number or email';
           });
           return;
         }
 
         final userData = querySnapshot.docs.first.data();
         email = userData['email'];
-        if (email == null) {
-          setState(() {
-            _error = 'User account is missing email. Please contact support.';
-          });
-          return;
-        }
       }
 
       // Sign in with the resolved email
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
+        email: email!,
         password: password,
       );
 
-      // Fetch user document from Firestore
+      // Check if user is active
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -92,46 +86,34 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // final fullUserData = userDoc.data() as Map<String, dynamic>;
-      // // Default to true if isActive is missing to avoid blocking valid users
-      // final isActive = fullUserData['isActive'] ?? true;
+      final fullUserData = userDoc.data() as Map<String, dynamic>;
+      final isActive = fullUserData['isActive'] ?? false;
 
-      // // Debug: Log the isActive value
-      // debugPrint('User ${userCredential.user!.uid}: isActive = $isActive');
-
-      // if (!isActive) {
-      //   await FirebaseAuth.instance.signOut();
-      //   setState(() {
-      //     _error = 'Your account has been disabled. Please contact support.';
-      //   });
-      //   return;
-      // }
+      if (!isActive) {
+        await FirebaseAuth.instance.signOut();
+        setState(() {
+          _error = 'Your account has been disabled. Please contact support.';
+        });
+        return;
+      }
 
       // Success: Navigate to home/dashboard
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'An error occurred during sign-in';
+      String errorMessage = 'An error occurred during sign in';
 
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'No user found with this email';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Incorrect password';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Invalid email address';
-          break;
-        case 'user-disabled':
-          errorMessage = 'This account has been disabled';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'Too many failed login attempts. Try again later';
-          break;
-        default:
-          errorMessage = 'Sign-in failed: ${e.message}';
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No user found with this email';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (e.code == 'user-disabled') {
+        errorMessage = 'This account has been disabled';
+      } else if (e.code == 'too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Try again later';
       }
 
       setState(() {
@@ -139,7 +121,7 @@ class _LoginPageState extends State<LoginPage> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Unexpected error: $e';
+        _error = e.toString();
       });
     } finally {
       setState(() {
@@ -172,7 +154,7 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                         height: 200,
                         width: 200,
-                        child: Lottie.asset('assets/animations/logo.json')),
+                        child: Lottie.asset('assets/animations/reg.json')),
                     const SizedBox(height: 24),
                     Text(
                       'Welcome Back',

@@ -33,7 +33,6 @@ class _create_adminState extends State<create_admin> {
           .set({
         'email': _emailController.text.trim(),
         'role': 'admin',
-        'isActive': true,
       });
 
       setState(() {

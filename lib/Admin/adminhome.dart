@@ -1,9 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:photomerge/Admin/images/a_listimages.dart';
-import 'package:photomerge/Admin/images/add_posters.dart';
-import 'package:photomerge/Admin/categoreys/categoreymanagment.dart';
+import 'package:photomerge/Admin/image_/a_listimages.dart';
+import 'package:photomerge/Admin/image_/add_posters.dart';
+import 'package:photomerge/Admin/categories/categoreymanagment.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({Key? key}) : super(key: key);
@@ -46,13 +46,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
             MaterialPageRoute(builder: (context) => ListImagesPage()),
           )
     },
-    {
-      'icon': Icons.person_add,
-      'title': 'Add Admin',
-      'subtitle': 'Create a new admin account.',
-      'onTap': (BuildContext context) =>
-          Navigator.pushNamed(context, '/createadmin')
-    },
+    // {
+    //   'icon': Icons.person_add,
+    //   'title': 'Add Admin',
+    //   'subtitle': 'Create a new admin account.',
+    //   'onTap': (BuildContext context) =>
+    //       Navigator.pushNamed(context, '/createadmin')
+    // },
     {
       'icon': Icons.person_add,
       'title': 'List Users',
