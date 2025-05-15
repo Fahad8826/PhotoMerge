@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'
     as flutterSecureStorage;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+import 'package:photomerge/Authentication/forgotpassword.dart';
 import 'package:uuid/uuid.dart';
 
 class LoginPage extends StatefulWidget {
@@ -470,10 +471,26 @@ class _LoginPageState extends State<LoginPage> {
                               onTap: () {
                                 // Handle forgot password
                               },
-                              child: Text(
-                                "Forgot Password?",
-                                style: TextStyle(
-                                  color: Color.fromRGBO(143, 148, 251, 1),
+                              // child: Text(
+                              //   "Forgot Password?",
+                              //   style: TextStyle(
+                              //     color: Color.fromRGBO(143, 148, 251, 1),
+                              //   ),
+                              // ),
+                              child: TextButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ForgotPasswordPage(),
+                                      ));
+                                },
+                                child: Text(
+                                  'Forgot Password',
+                                  style: TextStyle(
+                                    color: Color.fromRGBO(143, 148, 251, 1),
+                                  ),
                                 ),
                               ),
                             ),
