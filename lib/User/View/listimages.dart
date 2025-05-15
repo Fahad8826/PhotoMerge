@@ -1,22 +1,11 @@
-import 'package:awesome_notifications/awesome_notifications.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart';
-import 'package:palette_generator/palette_generator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:photomerge/User/View/home.dart';
 import 'package:photomerge/User/View/imagedetails.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'dart:ui' as ui;
-import 'dart:io';
 
 class ListImages extends StatefulWidget {
   const ListImages({Key? key}) : super(key: key);
@@ -99,9 +88,9 @@ class _ListImagesState extends State<ListImages> {
         backgroundColor: Colors.white,
         title: Text(
           'Gallery',
-          style: GoogleFonts.oswald(
-            color: Colors.green,
-            fontSize: 25,
+          style: GoogleFonts.poppins(
+            color: Color(0xFF00A19A),
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -117,7 +106,7 @@ class _ListImagesState extends State<ListImages> {
           icon: Icon(
             Icons.arrow_back,
           ),
-          color: Colors.green,
+          color: Color(0xFF00A19A),
         ),
       ),
       body: _documents.isEmpty && _isLoading

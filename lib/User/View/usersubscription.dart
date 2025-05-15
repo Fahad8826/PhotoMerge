@@ -228,20 +228,20 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
           icon: Icon(
             Icons.arrow_back,
           ),
-          color: Colors.green,
+          color: Color(0xFF00A19A),
         ),
         title: Text(
           'My Subscription',
-          style: GoogleFonts.oswald(
-            color: Colors.green,
-            fontSize: 25,
+          style: GoogleFonts.poppins(
+            color: Color(0xFF00A19A),
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
         backgroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.green),
+            icon: const Icon(Icons.refresh, color: Color(0xFF00A19A)),
             onPressed: () {
               setState(() {
                 _isLoading = true;
@@ -367,82 +367,157 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
     }
 
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+      elevation: 4,
+      shadowColor: Colors.grey.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(20.0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white,
+              Colors.grey.shade50,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              isExpired
-                  ? Icons.warning
-                  : (subscriptionActive
-                      ? Icons.check_circle
-                      : Icons.info_outline),
-              size: 48,
-              color: const Color(0xFF4CAF50),
+            // Status Icon with Animation
+            AnimatedScale(
+              scale: subscriptionActive && !isExpired ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              child: Icon(
+                isExpired
+                    ? Icons.warning_rounded
+                    : (subscriptionActive
+                        ? Icons.check_circle_rounded
+                        : Icons.info_outline_rounded),
+                size: 56,
+                color: isExpired
+                    ? Colors.redAccent
+                    : (subscriptionActive
+                        ? const Color(0xFF4CAF50)
+                        : Colors.grey),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            // Subscription Status Text
             Text(
               isExpired
                   ? 'Expired Subscription'
                   : (subscriptionActive
                       ? 'Active Subscription'
                       : 'No Active Subscription'),
-              style: const TextStyle(
-                fontSize: 20,
+              style: GoogleFonts.poppins(
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
+                color: isExpired
+                    ? Colors.redAccent
+                    : (subscriptionActive ? Colors.black87 : Colors.grey),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            Text(
-              'Plan: $subscriptionPlan',
-              style: const TextStyle(fontSize: 16),
+            // Plan Information
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Plan: $subscriptionPlan',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
             ),
             const SizedBox(height: 8),
+            // Expiry Information
             Text(
               expiryText,
-              style: const TextStyle(fontSize: 14),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: isNearExpiry ? Colors.redAccent : Colors.grey.shade600,
+              ),
             ),
-            if (subscriptionActive)
+            if (subscriptionActive && !isExpired)
               ValueListenableBuilder<Duration?>(
                 valueListenable: _timeUntilExpiry,
                 builder: (context, duration, child) {
                   if (duration == null) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Time Remaining: ${_formatDuration(duration)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF4CAF50),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isNearExpiry
+                            ? Colors.red.shade50
+                            : Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Time Remaining: ${_formatDuration(duration)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: isNearExpiry
+                              ? Colors.redAccent
+                              : const Color(0xFF4CAF50),
+                        ),
                       ),
                     ),
                   );
                 },
               ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _showSubscriptionDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text(
-                isExpired
-                    ? 'Renew Now'
-                    : (subscriptionActive ? 'Change Plan' : 'Subscribe Now'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+            const SizedBox(height: 20),
+            // Action Button with Animation
+            AnimatedOpacity(
+              opacity: subscriptionActive && !isExpired ? 1.0 : 0.9,
+              duration: const Duration(milliseconds: 300),
+              child: ElevatedButton(
+                onPressed: _showSubscriptionDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4CAF50),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                child: Text(
+                  isExpired
+                      ? 'Renew Now'
+                      : (subscriptionActive ? 'Change Plan' : 'Subscribe Now'),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
+            if (isNearExpiry)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  'Your subscription is nearing expiry!',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

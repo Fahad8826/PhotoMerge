@@ -187,9 +187,9 @@ class _MycategoryState extends State<Mycategory> {
         backgroundColor: Colors.white,
         title: Text(
           '${widget.categoryFilter} Photos',
-          style: GoogleFonts.oswald(
-            fontSize: 25,
-            color: Colors.green,
+          style: GoogleFonts.poppins(
+            color: Color(0xFF00A19A),
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -205,54 +205,18 @@ class _MycategoryState extends State<Mycategory> {
           icon: Icon(
             Icons.arrow_back,
           ),
-          color: Colors.green,
+          color: Color(0xFF00A19A),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.green),
+            icon: const Icon(Icons.refresh, color: Color(0xFF00A19A)),
             onPressed: _refreshImages,
           ),
         ],
       ),
       body: Column(
         children: [
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _subcategories.length,
-              itemBuilder: (context, index) {
-                final subcategory = _subcategories[index];
-                final isSelected = _selectedSubcategory == subcategory ||
-                    (subcategory == 'All' && _selectedSubcategory == null);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: ChoiceChip(
-                    label: Text(subcategory),
-                    selected: isSelected,
-                    selectedColor: Theme.of(context).primaryColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                    ),
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedSubcategory =
-                              subcategory == 'All' ? null : subcategory;
-                          _documents.clear();
-                          _lastDocument = null;
-                          _hasMore = true;
-                        });
-                        _fetchImages();
-                      }
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          Container(child: buildSubcategoryFilter()),
           Expanded(
             child: _documents.isEmpty && _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -319,6 +283,62 @@ class _MycategoryState extends State<Mycategory> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget buildSubcategoryFilter() {
+    return Container(
+      height: 60,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        itemCount: _subcategories.length,
+        itemBuilder: (context, index) {
+          final subcategory = _subcategories[index];
+          final isSelected = _selectedSubcategory == subcategory ||
+              (subcategory == 'All' && _selectedSubcategory == null);
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(
+                subcategory,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black87,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 13,
+                ),
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() {
+                    _selectedSubcategory =
+                        subcategory == 'All' ? null : subcategory;
+                    _documents.clear();
+                    _lastDocument = null;
+                    _hasMore = true;
+                  });
+                  _fetchImages();
+                }
+              },
+              backgroundColor: Colors.white,
+              selectedColor: const Color(0xFF00A19A),
+              elevation: 1,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isSelected
+                      ? const Color(0xFF00A19A)
+                      : Colors.grey.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

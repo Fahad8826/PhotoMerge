@@ -811,10 +811,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _changeQuality(String quality) {
-    // Save current position before changing quality
+   
     final currentPosition = _controller.value.position;
 
-    // Update controller with new quality setting
+    
     if (quality == 'auto') {
       // For auto, use default quality
       _controller.updateValue(
@@ -949,10 +949,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               handleColor: Color(0xFF4CAF50),
             ),
             onReady: () {
-              // Player is ready
+             
             },
             bottomActions: [
-              // Custom bottom controls
+             
 
               CurrentPosition(),
               ProgressBar(

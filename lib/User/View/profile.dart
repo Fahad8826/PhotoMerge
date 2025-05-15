@@ -20,16 +20,23 @@ class _ProfilePageState extends State<ProfilePage> {
   final _firestore = FirebaseFirestore.instance;
   final _formKey = GlobalKey<FormState>();
 
-  // Enhanced color palette
-  static const Color primaryColor = Color(0xFF2E7D32);
-  static const Color accentColor = Color(0xFF81C784);
-  static const Color backgroundColor = Color(0xFFF5F7FA);
+  // Modern color palette based on image
+  static const Color primaryColor = Color(0xFF00A19A); // Teal green
+  static const Color accentColor = Color(0xFF005F5C); // Light teal
+  static const Color backgroundColor = Color(0xFFF5F7FA); // Off-white
   static const Color cardColor = Colors.white;
-  static const Color textColor = Color(0xFF1E293B);
-  static const Color textSecondaryColor = Color(0xFF64748B);
-  static const Color dividerColor = Color(0xFFE2E8F0);
-  static const Color errorColor = Color(0xFFB91C1C);
-  static const Color successColor = Color(0xFF15803D);
+  static const Color textColor = Color(0xFF212121); // Dark blue-gray
+  static const Color textSecondaryColor = Color(0xFF64748B); // Medium gray
+  static const Color dividerColor = Color(0xFFE2E8F0); // Light gray
+  static const Color errorColor = Color(0xFFE53E3E); // Red
+  static const Color successColor = Color(0xFF38A169); // Green
+
+  // static const Color primaryColor = Color(0xFF00A19A); // Teal main color
+  // static const Color secondaryColor =Color(0xFFF8FAFA); // Very light background
+  // static const Color accentColor = Color(0xFF005F5C); // Darker teal for accents
+  // static const Color cardColor = Colors.white; // White card backgrounds
+  // static const Color textColor = Color(0xFF212121); // Primary text
+  // static const Color subtitleColor = Color(0xFF757575);
 
   // Controllers
   late TextEditingController _firstNameController;
@@ -52,6 +59,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
   bool _isEditing = false;
   bool _isSaving = false;
+  int _selectedTabIndex = 0;
 
   @override
   void initState() {
@@ -143,13 +151,17 @@ class _ProfilePageState extends State<ProfilePage> {
       SnackBar(
         content: Text(
           message,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         backgroundColor: isError ? errorColor : successColor,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
+        elevation: 4,
       ),
     );
   }
@@ -159,7 +171,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: source,
-        imageQuality: 80,
+        imageQuality: 85,
         maxWidth: 800,
         maxHeight: 800,
       );
@@ -182,15 +194,17 @@ class _ProfilePageState extends State<ProfilePage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      elevation: 0,
+      isScrollControlled: true,
       builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 12,
+              blurRadius: 20,
               offset: const Offset(0, 4),
             ),
           ],
@@ -198,34 +212,102 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Text(
                 'Choose Image Source',
-                style: TextStyle(
+                style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: textColor,
                 ),
               ),
             ),
-            ListTile(
-              leading: Icon(Icons.photo_library, color: primaryColor),
-              title: Text('Gallery', style: TextStyle(color: textColor)),
+            const Divider(height: 1, color: dividerColor),
+            _buildPickerOption(
+              icon: Icons.photo_library_rounded,
+              title: 'Gallery',
+              subtitle: 'Choose from your photos',
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery, isUserImage);
               },
             ),
-            ListTile(
-              leading: Icon(Icons.camera_alt, color: primaryColor),
-              title: Text('Camera', style: TextStyle(color: textColor)),
+            const Divider(height: 1, color: dividerColor),
+            _buildPickerOption(
+              icon: Icons.camera_alt_rounded,
+              title: 'Camera',
+              subtitle: 'Take a new photo',
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera, isUserImage);
               },
             ),
             const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: primaryColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: textSecondaryColor,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -293,10 +375,12 @@ class _ProfilePageState extends State<ProfilePage> {
           .set(data, SetOptions(merge: true));
 
       if (mounted) {
-        // _showSnackBar('Profile updated successfully');
+        _showSnackBar('Profile updated successfully');
+        setState(() => _isEditing = false);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const UserDashboard()),
+          MaterialPageRoute(builder: (context) => UserDashboard()),
         );
       }
     } catch (e) {
@@ -315,212 +399,345 @@ class _ProfilePageState extends State<ProfilePage> {
         primaryColor: primaryColor,
         scaffoldBackgroundColor: backgroundColor,
         cardColor: cardColor,
-        textTheme: ThemeData.light().textTheme.apply(
-              bodyColor: textColor,
-              displayColor: textColor,
-            ),
+        textTheme: GoogleFonts.poppinsTextTheme(
+          ThemeData.light().textTheme.apply(
+                bodyColor: textColor,
+                displayColor: textColor,
+              ),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: dividerColor.withOpacity(0.3)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: primaryColor, width: 2),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: errorColor),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: errorColor, width: 2),
           ),
-          labelStyle: TextStyle(color: textSecondaryColor, fontSize: 14),
-          floatingLabelStyle: TextStyle(color: primaryColor, fontSize: 14),
-          errorStyle: const TextStyle(color: errorColor, fontSize: 12),
+          labelStyle: GoogleFonts.poppins(
+            color: textSecondaryColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          floatingLabelStyle: GoogleFonts.poppins(
+            color: primaryColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          errorStyle: GoogleFonts.poppins(
+            color: errorColor,
+            fontSize: 12,
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: primaryColor,
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 18),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 0,
-            shadowColor: Colors.black.withOpacity(0.2),
-            textStyle: const TextStyle(
+            shadowColor: primaryColor.withOpacity(0.3),
+            textStyle: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
         ),
+        colorScheme: ColorScheme.light(
+          primary: primaryColor,
+          secondary: accentColor,
+          error: errorColor,
+        ),
       ),
       child: Scaffold(
+        backgroundColor: backgroundColor,
         body: _isLoading
             ? const _LoadingIndicator()
-            : CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  _buildAppBar(),
-                  SliverPadding(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    sliver: SliverToBoxAdapter(
+            : SafeArea(
+                child: Column(
+                  children: [
+                    _buildAppBar(),
+                    _buildTabSelector(),
+                    Expanded(
                       child: _isSaving
                           ? const _LoadingIndicator()
-                          : Form(
-                              key: _formKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const SizedBox(height: 16),
-                                  _buildProfileHeader(),
-                                  const SizedBox(height: 24),
-                                  _buildInfoCard(
-                                    'Personal Information',
-                                    [
-                                      _buildTextField(
-                                        'First Name',
-                                        Icons.person_outline,
-                                        _firstNameController,
-                                        semanticLabel: 'First Name',
-                                      ),
-                                      _buildTextField(
-                                        'Last Name',
-                                        Icons.person,
-                                        _lastNameController,
-                                        semanticLabel: 'Last Name',
-                                      ),
-                                      _buildTextField(
-                                        'Email',
-                                        Icons.email_outlined,
-                                        _emailController,
-                                        type: TextInputType.emailAddress,
-                                        semanticLabel: 'Email Address',
-                                        overrideEnabled:
-                                            false, // make read-only
-                                      ),
-                                      _buildTextField(
-                                        'Phone',
-                                        Icons.phone_outlined,
-                                        _phoneController,
-                                        type: TextInputType.phone,
-                                        semanticLabel: 'Phone Number',
-                                        overrideEnabled:
-                                            false, // make read-only
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 24),
-                                  _buildInfoCard(
-                                    'Company Information',
-                                    [
-                                      _buildTextField(
-                                        'Company Name',
-                                        Icons.business_outlined,
-                                        _companyNameController,
-                                        semanticLabel: 'Company Name',
-                                      ),
-                                      _buildTextField(
-                                        'Designation',
-                                        Icons.work_outline,
-                                        _designationController,
-                                        semanticLabel: 'Designation',
-                                      ),
-                                      _buildTextField(
-                                        'District',
-                                        Icons.location_city,
-                                        _districtController,
-                                        semanticLabel: 'District',
-                                      ),
-                                      _buildTextField(
-                                        'Branch',
-                                        Icons.store,
-                                        _branchController,
-                                        semanticLabel: 'Branch',
-                                      ),
-                                      _buildTextField(
-                                        'Website',
-                                        Icons.link,
-                                        _websiteController,
-                                        type: TextInputType.url,
-                                        semanticLabel: 'Company Website',
-                                      ),
-                                      _buildCompanyLogo(),
-                                    ],
-                                  ),
-                                  if (_isEditing) _buildSaveButton(),
-                                ],
-                              ),
+                          : IndexedStack(
+                              index: _selectedTabIndex,
+                              children: [
+                                _buildPersonalTab(),
+                                _buildCompanyTab(),
+                              ],
                             ),
                     ),
-                  ),
-                ],
+                    if (_isEditing) _buildSaveButton(),
+                  ],
+                ),
               ),
       ),
     );
   }
 
   Widget _buildAppBar() {
-    return SliverAppBar(
-      pinned: true,
-      backgroundColor: Colors.white,
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      leading: IconButton(
-          onPressed: () => Navigator.pushNamed(context, '/user'),
-          icon: Icon(
-            Icons.arrow_back,
-            color: Colors.green,
-          )),
-      title: Text(
-        'My Profile',
-        style: GoogleFonts.oswald(
-          color: primaryColor,
-          fontSize: 26,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      centerTitle: true,
-      actions: [
-        if (!_isLoading && !_isSaving)
-          IconButton(
-            icon: Icon(
-              _isEditing ? Icons.check : Icons.edit_outlined,
-              color: primaryColor,
-              size: 24,
-            ),
-            onPressed: _isEditing
-                ? _updateUserData
-                : () => setState(() => _isEditing = true),
-            tooltip: _isEditing ? 'Save Profile' : 'Edit Profile',
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-      ],
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Text(
+            'My Profile',
+            style: GoogleFonts.poppins(
+              color: textColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          if (!_isLoading && !_isSaving)
+            Container(
+              decoration: BoxDecoration(
+                color: _isEditing ? primaryColor : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: Icon(
+                  _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                  color: _isEditing ? Colors.white : primaryColor,
+                  size: 20,
+                ),
+                onPressed: _isEditing
+                    ? _updateUserData
+                    : () => setState(() => _isEditing = true),
+                tooltip: _isEditing ? 'Save Profile' : 'Edit Profile',
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
+                padding: EdgeInsets.zero,
+                iconSize: 20,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildProfileHeader() {
-    final fullName =
-        '${_firstNameController.text} ${_lastNameController.text}'.trim();
+  Widget _buildTabSelector() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton(
+              'Personal',
+              Icons.person_rounded,
+              0,
+            ),
+          ),
+          Expanded(
+            child: _buildTabButton(
+              'Company',
+              Icons.business_rounded,
+              1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label, IconData icon, int index) {
+    final isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : textSecondaryColor,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                color: isSelected ? Colors.white : textSecondaryColor,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalTab() {
+    final fullName =
+        '${_firstNameController.text} ${_lastNameController.text}'.trim();
+
+    return Form(
+      key: _selectedTabIndex == 0 ? _formKey : null,
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          children: [
+            _buildProfileHeader(fullName),
+            const SizedBox(height: 24),
+            _buildSectionCard(
+              'Personal Information',
+              [
+                _buildTextField(
+                  'First Name',
+                  Icons.person_outline_rounded,
+                  _firstNameController,
+                  semanticLabel: 'First Name',
+                ),
+                _buildTextField(
+                  'Last Name',
+                  Icons.person_rounded,
+                  _lastNameController,
+                  semanticLabel: 'Last Name',
+                ),
+                _buildTextField(
+                  'Email',
+                  Icons.email_outlined,
+                  _emailController,
+                  type: TextInputType.emailAddress,
+                  semanticLabel: 'Email Address',
+                  overrideEnabled: false, // make read-only
+                ),
+                _buildTextField(
+                  'Phone',
+                  Icons.phone_outlined,
+                  _phoneController,
+                  type: TextInputType.phone,
+                  semanticLabel: 'Phone Number',
+                  overrideEnabled: false, // make read-only
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompanyTab() {
+    return Form(
+      key: _selectedTabIndex == 1 ? _formKey : null,
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          children: [
+            _buildCompanyLogoCard(),
+            const SizedBox(height: 24),
+            _buildSectionCard(
+              'Company Information',
+              [
+                _buildTextField(
+                  'Company Name',
+                  Icons.business_outlined,
+                  _companyNameController,
+                  semanticLabel: 'Company Name',
+                ),
+                _buildTextField(
+                  'Designation',
+                  Icons.work_outline_rounded,
+                  _designationController,
+                  semanticLabel: 'Designation',
+                ),
+                _buildTextField(
+                  'District',
+                  Icons.location_city_rounded,
+                  _districtController,
+                  semanticLabel: 'District',
+                ),
+                _buildTextField(
+                  'Branch',
+                  Icons.store_rounded,
+                  _branchController,
+                  semanticLabel: 'Branch',
+                ),
+                _buildTextField(
+                  'Website',
+                  Icons.link_rounded,
+                  _websiteController,
+                  type: TextInputType.url,
+                  semanticLabel: 'Company Website',
+                  prefix: 'https://',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(String fullName) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
             offset: const Offset(0, 4),
           ),
         ],
@@ -531,23 +748,36 @@ class _ProfilePageState extends State<ProfilePage> {
             alignment: Alignment.bottomRight,
             clipBehavior: Clip.none,
             children: [
-              Semantics(
-                label: 'Profile Image',
-                child: CircleAvatar(
-                  radius: 56,
-                  backgroundColor: dividerColor.withOpacity(0.2),
-                  backgroundImage: _userImage != null
-                      ? FileImage(_userImage!)
-                      : _userImageUrl?.isNotEmpty ?? false
-                          ? NetworkImage(_userImageUrl!)
-                          : null,
-                  child: _userImage == null && (_userImageUrl?.isEmpty ?? true)
-                      ? Icon(
-                          Icons.person,
-                          size: 56,
-                          color: textSecondaryColor,
-                        )
-                      : null,
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Semantics(
+                  label: 'Profile Image',
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: dividerColor.withOpacity(0.4),
+                    backgroundImage: _userImage != null
+                        ? FileImage(_userImage!)
+                        : _userImageUrl?.isNotEmpty ?? false
+                            ? NetworkImage(_userImageUrl!)
+                            : null,
+                    child:
+                        _userImage == null && (_userImageUrl?.isEmpty ?? true)
+                            ? Icon(
+                                Icons.person_rounded,
+                                size: 60,
+                                color: textSecondaryColor,
+                              )
+                            : null,
+                  ),
                 ),
               ),
               if (_isEditing)
@@ -557,59 +787,203 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: GestureDetector(
                     onTap: () => _showImagePickerOptions(true),
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: primaryColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2.5),
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(
-                        Icons.camera_alt,
+                        Icons.camera_alt_rounded,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             fullName.isEmpty ? 'Complete Your Profile' : fullName,
-            style: TextStyle(
-              fontSize: 24,
+            style: GoogleFonts.poppins(
+              fontSize: 22,
               fontWeight: FontWeight.w700,
               color: textColor,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             _emailController.text.isEmpty
                 ? 'Add your email'
                 : _emailController.text,
-            style: TextStyle(
-              fontSize: 15,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
               color: textSecondaryColor,
             ),
             textAlign: TextAlign.center,
           ),
+          if (_phoneController.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _phoneController.text,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoCard(String title, List<Widget> children) {
+  Widget _buildCompanyLogoCard() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Company Logo',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: _isEditing ? () => _showImagePickerOptions(false) : null,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color:
+                      _isEditing ? primaryColor.withOpacity(0.5) : dividerColor,
+                  width: _isEditing ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: _companyLogo != null
+                    ? Image.file(
+                        _companyLogo!,
+                        fit: BoxFit.cover,
+                      )
+                    : _companyLogoUrl?.isNotEmpty ?? false
+                        ? Image.network(
+                            _companyLogoUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  color: primaryColor,
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.broken_image_rounded,
+                                  color: textSecondaryColor,
+                                  size: 40,
+                                ),
+                              );
+                            },
+                          )
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.business_rounded,
+                                  color: textSecondaryColor.withOpacity(0.6),
+                                  size: 40,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _isEditing ? 'Add Logo' : 'No Logo',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: textSecondaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+              ),
+            ),
+          ),
+          if (_isEditing)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Tap to change company logo',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: textSecondaryColor,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard(String title, List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
             offset: const Offset(0, 4),
           ),
         ],
@@ -619,19 +993,14 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 20,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
               fontWeight: FontWeight.w600,
               color: textColor,
             ),
           ),
-          const SizedBox(height: 16),
-          ...children.map(
-            (child) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: child,
-            ),
-          ),
+          const SizedBox(height: 20),
+          ...children.expand((widget) => [widget, const SizedBox(height: 16)]),
         ],
       ),
     );
@@ -642,155 +1011,84 @@ class _ProfilePageState extends State<ProfilePage> {
     IconData icon,
     TextEditingController controller, {
     TextInputType type = TextInputType.text,
+    bool obscureText = false,
+    String? prefix,
+    bool Function(String)? validator,
     String? semanticLabel,
     bool? overrideEnabled,
   }) {
-    final isFieldEnabled = overrideEnabled ?? _isEditing;
+    final isEnabled = overrideEnabled ?? _isEditing;
 
-    return Semantics(
-      label: semanticLabel ?? label,
-      child: TextFormField(
-        controller: controller,
-        keyboardType: type,
-        enabled: isFieldEnabled,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
+    return TextFormField(
+      controller: controller,
+      keyboardType: type,
+      obscureText: obscureText,
+      enabled: isEnabled,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixText: prefix,
+        prefixIcon: Icon(
+          icon,
+          color: isEnabled ? primaryColor : textSecondaryColor,
+          size: 22,
         ),
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: primaryColor, size: 20),
-          suffixIcon: isFieldEnabled && controller.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: textSecondaryColor, size: 20),
-                  onPressed: () => controller.clear(),
-                )
-              : null,
-        ),
-        validator: (value) {
-          if (value?.trim().isEmpty ?? true) return '$label is required';
-
-          if (type == TextInputType.emailAddress &&
-              !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
-            return 'Enter a valid email';
-          }
-          if (type == TextInputType.phone &&
-              !RegExp(r'^\+?[\d\s-]{10,}$').hasMatch(value!)) {
-            return 'Enter a valid phone number';
-          }
-          if (type == TextInputType.url &&
-              !RegExp(r'^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w- .\/?%&=]*)?$')
-                  .hasMatch(value!)) {
-            return 'Enter a valid URL';
-          }
-          return null;
-        },
+        suffixIcon: isEnabled && controller.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear_rounded, size: 18),
+                onPressed: () => setState(() => controller.clear()),
+                color: textSecondaryColor,
+              )
+            : null,
       ),
-    );
-  }
-
-  Widget _buildCompanyLogo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Company Logo',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: textColor,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: GestureDetector(
-            onTap: _isEditing ? () => _showImagePickerOptions(false) : null,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: dividerColor.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: dividerColor.withOpacity(0.5)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: _companyLogo != null
-                    ? Image.file(
-                        _companyLogo!,
-                        fit: BoxFit.cover,
-                        width: 120,
-                        height: 120,
-                      )
-                    : _companyLogoUrl?.isNotEmpty ?? false
-                        ? Image.network(
-                            _companyLogoUrl!,
-                            fit: BoxFit.cover,
-                            width: 120,
-                            height: 120,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
-                                  strokeWidth: 2,
-                                  color: primaryColor,
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) =>
-                                _buildLogoPlaceholder(),
-                          )
-                        : _buildLogoPlaceholder(),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLogoPlaceholder() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.business,
-          size: 40,
-          color: textSecondaryColor.withOpacity(0.6),
-        ),
-        if (_isEditing)
-          Text(
-            'Add Logo',
-            style: TextStyle(
-              fontSize: 12,
-              color: textSecondaryColor,
-            ),
-          ),
-      ],
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: isEnabled ? textColor : textSecondaryColor,
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return '$label is required';
+        }
+        if (validator != null && !validator(value)) {
+          return 'Please enter a valid $label';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildSaveButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ElevatedButton(
-        onPressed: _isSaving ? null : _updateUserData,
-        child: _isSaving
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _updateUserData,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 40), // Reduced height
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10), // Reduced padding
+              ),
+              child: Text(
+                'Save Changes',
+                style: GoogleFonts.poppins(
+                  fontSize: 14, // Smaller font size
+                  fontWeight: FontWeight.w600,
                 ),
-              )
-            : const Text('Save Profile'),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -801,10 +1099,24 @@ class _LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(
-        color: _ProfilePageState.primaryColor,
-        strokeWidth: 3,
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            color: Color(0xFF06846A),
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading...',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ],
       ),
     );
   }

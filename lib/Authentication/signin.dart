@@ -1,9 +1,16 @@
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'
+    as flutterSecureStorage;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
-import 'package:photomerge/main.dart';
+import 'package:uuid/uuid.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -13,7 +20,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
 
@@ -65,6 +71,27 @@ class _LoginPageState extends State<LoginPage> {
         email = userData['email'];
       }
 
+      // Check if user is already logged in somewhere else
+      final userQuerySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (userQuerySnapshot.docs.isNotEmpty) {
+        final userData = userQuerySnapshot.docs.first.data();
+        final bool isLoggedInElsewhere = userData['isLoggedIn'] ?? false;
+        final String deviceId = userData['deviceId'] ?? '';
+        final String currentDeviceId = await _getDeviceId();
+
+        if (isLoggedInElsewhere && deviceId != currentDeviceId) {
+          setState(() {
+            _error = 'This account is already logged in on another device';
+          });
+          return;
+        }
+      }
+
       // Sign in with the resolved email
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -96,6 +123,17 @@ class _LoginPageState extends State<LoginPage> {
         });
         return;
       }
+
+      // Update user's login status and device ID
+      final String deviceId = await _getDeviceId();
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .update({
+        'isLoggedIn': true,
+        'deviceId': deviceId,
+        'lastLoginAt': FieldValue.serverTimestamp(),
+      });
 
       // Success: Navigate to home/dashboard
       if (mounted) {
@@ -130,218 +168,50 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final colorScheme = Theme.of(context).colorScheme;
+  Future<String> _getDeviceId() async {
+    try {
+      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: LoadingOverlay(
-        isLoading: _isLoading,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: SizedBox(
-                height: size.height - 40, // Account for SafeArea
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Spacer(flex: 1),
-                    // App logo or icon here
-                    SizedBox(
-                        height: 200,
-                        width: 200,
-                        child: Lottie.asset('assets/animations/reg.json')),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Welcome Back',
-                      style: GoogleFonts.oswald(
-                          fontSize: 35,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in to continue',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-                    // Email field
-                    // Email TextField
-                    TextField(
-                      controller: _emailController,
-                      focusNode: _emailFocusNode,
-                      textInputAction: TextInputAction.next,
-                      onSubmitted: (_) {
-                        FocusScope.of(context).requestFocus(_passwordFocusNode);
-                      },
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'Enter your email',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.green, width: 2),
-                        ),
-                        prefixIcon:
-                            Icon(Icons.email_outlined, color: Colors.green),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        return androidInfo.id;
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor!;
+      } else if (kIsWeb) {
+        const storage = flutterSecureStorage.FlutterSecureStorage();
+        String? deviceId = await storage.read(key: 'device_id');
 
-                    const SizedBox(height: 20),
+        if (deviceId == null) {
+          deviceId = Uuid().v4();
+          await storage.write(key: 'device_id', value: deviceId);
+        }
 
-// Password TextField
-                    TextField(
-                      controller: _passwordController,
-                      focusNode: _passwordFocusNode,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Enter your password',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.green, width: 2),
-                        ),
-                        prefixIcon:
-                            Icon(Icons.lock_outline, color: Colors.green),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _passwordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.grey[600],
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _passwordVisible = !_passwordVisible;
-                            });
-                          },
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      obscureText: !_passwordVisible,
-                    ),
+        return deviceId;
+      }
 
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          // Handle forgot password
-                        },
-                        child: Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (_error != null)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red[200]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error_outline, color: Colors.red[700]),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _error!,
-                                style: TextStyle(color: Colors.red[700]),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-                    // Login button
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        'Log In',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: TextStyle(
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/signup'),
-                          child: Text(
-                            'Sign Up',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(flex: 2),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+      return 'unknown_device';
+    } catch (e) {
+      return DateTime.now().millisecondsSinceEpoch.toString();
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'isLoggedIn': false,
+          'deviceId': '',
+        });
+      }
+      await FirebaseAuth.instance.signOut();
+    } catch (e) {
+      print('Error during logout: $e');
+    }
   }
 
   @override
@@ -351,5 +221,309 @@ class _LoginPageState extends State<LoginPage> {
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Container(
+              child: Column(
+                children: <Widget>[
+                  Container(
+                    height: 400,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/images/background.png'),
+                        fit: BoxFit.fill,
+                      ),
+                    ),
+                    child: Stack(
+                      children: <Widget>[
+                        Positioned(
+                          left: 30,
+                          width: 80,
+                          height: 200,
+                          child: FadeInUp(
+                            duration: Duration(seconds: 1),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image:
+                                      AssetImage('assets/images/light-1.png'),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 140,
+                          width: 80,
+                          height: 150,
+                          child: FadeInUp(
+                            duration: Duration(milliseconds: 1200),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image:
+                                      AssetImage('assets/images/light-2.png'),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 40,
+                          top: 40,
+                          width: 80,
+                          height: 150,
+                          child: FadeInUp(
+                            duration: Duration(milliseconds: 1300),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/images/clock.png'),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          child: FadeInUp(
+                            duration: Duration(milliseconds: 1600),
+                            child: Container(
+                              margin: EdgeInsets.only(top: 50),
+                              child: Center(
+                                child: Text(
+                                  "Login",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(30.0),
+                    child: Column(
+                      children: <Widget>[
+                        FadeInUp(
+                          duration: Duration(milliseconds: 1800),
+                          child: Column(
+                            children: <Widget>[
+                              // Email or Phone Number TextField
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8.0, vertical: 4.0),
+                                child: TextField(
+                                  controller: _emailController,
+                                  focusNode: _emailFocusNode,
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) {
+                                    FocusScope.of(context)
+                                        .requestFocus(_passwordFocusNode);
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: "Email or Phone number",
+                                    hintStyle:
+                                        TextStyle(color: Colors.grey[700]),
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color.fromRGBO(143, 148, 251, 1),
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color:
+                                            Color.fromRGBO(143, 148, 251, 0.5),
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color.fromRGBO(143, 148, 251, 1),
+                                      ),
+                                    ),
+                                  ),
+                                  keyboardType: TextInputType.emailAddress,
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              // Password TextField
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8.0, vertical: 4.0),
+                                child: TextField(
+                                  controller: _passwordController,
+                                  focusNode: _passwordFocusNode,
+                                  textInputAction: TextInputAction.done,
+                                  obscureText: !_passwordVisible,
+                                  decoration: InputDecoration(
+                                    hintText: "Password",
+                                    hintStyle:
+                                        TextStyle(color: Colors.grey[700]),
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color.fromRGBO(143, 148, 251, 1),
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color:
+                                            Color.fromRGBO(143, 148, 251, 0.5),
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color.fromRGBO(143, 148, 251, 1),
+                                      ),
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _passwordVisible
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.grey[600],
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _passwordVisible = !_passwordVisible;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10.0),
+                            child: FadeInUp(
+                              duration: Duration(milliseconds: 1800),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.red[200]!),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline,
+                                        color: Colors.red[700]),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _error!,
+                                        style:
+                                            TextStyle(color: Colors.red[700]),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        SizedBox(height: 30),
+                        FadeInUp(
+                          duration: Duration(milliseconds: 1900),
+                          child: GestureDetector(
+                            onTap: _isLoading ? null : _login,
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFF00A19A),
+                                    Color(0x9900A19A),
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Login",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: FadeInUp(
+                            duration: Duration(milliseconds: 2000),
+                            child: GestureDetector(
+                              onTap: () {
+                                // Handle forgot password
+                              },
+                              child: Text(
+                                "Forgot Password?",
+                                style: TextStyle(
+                                  color: Color.fromRGBO(143, 148, 251, 1),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        FadeInUp(
+                          duration: Duration(milliseconds: 2100),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Don't have an account? ",
+                                style: TextStyle(
+                                  color: Colors.black,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pushNamed(context, '/signup'),
+                                child: Text(
+                                  "Sign Up",
+                                  style: TextStyle(
+                                    color: Color.fromRGBO(143, 148, 251, 1),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isLoading)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: Lottie.asset('assets/animations/empty_gallery.json'),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

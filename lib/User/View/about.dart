@@ -13,26 +13,25 @@ class AboutPage extends StatelessWidget {
         backgroundColor: Colors.white,
         title: Text(
           'About',
-          style: GoogleFonts.oswald(
-            color: Colors.green,
-            fontSize: 25,
+          style: GoogleFonts.poppins(
+            color: Color(0xFF00A19A),
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
         automaticallyImplyLeading: false,
         leading: IconButton(
-          onPressed: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => UserDashboard(),
-                ));
-          },
-          icon: Icon(
-            Icons.arrow_back,
-          ),
-          color: Colors.green,
-        ),
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserDashboard(),
+                  ));
+            },
+            icon: Icon(
+              Icons.arrow_back,
+            ),
+            color: Color(0xFF00A19A)),
       ),
       body: const Padding(
         padding: EdgeInsets.all(16.0),

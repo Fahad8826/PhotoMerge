@@ -9,7 +9,7 @@ import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:photomerge/User/View/home.dart';
+import 'package:photomerge/User/View/listimages.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -39,16 +39,6 @@ class _ImageDetailViewState extends State<ImageDetailView>
   final Map<String, Color> _dominantColors = {};
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
-  // Constants
-  // static const double pixelRatio = 3.0;
-  // // static const double a4Width = 1080.0;
-  // // static const double a4Height = 1350.0;
-  // static const double a4Width =
-  //     1950.0; // Scaled up for poster size (e.g., equivalent to ~A2 or custom)
-  // static const double a4Height = 3054.0; // Maintains A4 aspect ratio (1:1.414)
-  // static const int maxColorCount = 16;
-  // static const double fadeHeight = 100.0;
 
   static const double pixelRatio = 5.0; // Increased from 3.0 for higher quality
   static const double a4Width = 3540.0; // 4K resolution width
@@ -911,9 +901,9 @@ class _ImageDetailViewState extends State<ImageDetailView>
         backgroundColor: Colors.white,
         title: Text(
           'Image Details',
-          style: GoogleFonts.oswald(
-            color: Colors.green,
-            fontSize: 25,
+          style: GoogleFonts.poppins(
+            color: Color(0xFF00A19A),
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -923,13 +913,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => UserDashboard(),
+                  builder: (context) => ListImages(),
                 ));
           },
           icon: Icon(
             Icons.arrow_back,
           ),
-          color: Colors.green,
+          color: Color(0xFF00A19A),
         ),
       ),
       body: FutureBuilder(
@@ -939,7 +929,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
             // Show loader while waiting
             return Center(
               child: Lottie.asset(
-                'assets/animations/empty_gallery.json',
+                'assets/animations/image_generating.json',
                 width: 200,
                 height: 200,
                 fit: BoxFit.contain,
@@ -985,339 +975,3 @@ class WatermarkPainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
-
-
-// Widget _buildPhotoCard(
-//       String photoId, String photoUrl, Color backgroundColor) {
-//     return AnimatedBuilder(
-//       animation: _fadeAnimation,
-//       builder: (context, child) {
-//         return Transform.translate(
-//           offset: Offset(0, 20 * (1 - _fadeAnimation.value)),
-//           child: Opacity(
-//             opacity: _fadeAnimation.value,
-//             child: child,
-//           ),
-//         );
-//       },
-//       child: Card(
-//         elevation: 6,
-//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-//         margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//         clipBehavior: Clip.antiAlias,
-//         child: Column(
-//           children: [
-//             RepaintBoundary(
-//               key: _cardKey,
-//               child: Column(
-//                 children: [
-//                   AspectRatio(
-//                     aspectRatio: 4 / 5,
-//                     child: Stack(
-//                       fit: StackFit.expand,
-//                       children: [
-//                         CachedNetworkImage(
-//                           imageUrl: photoUrl,
-//                           fit: BoxFit.cover,
-//                           memCacheHeight: 1200,
-//                           placeholder: (context, url) => Shimmer.fromColors(
-//                             baseColor: Colors.grey[300]!,
-//                             highlightColor: Colors.grey[100]!,
-//                             child: Container(color: Colors.grey[300]),
-//                           ),
-//                           errorWidget: (context, url, error) {
-//                             print('Image load error for $url: $error');
-//                             return Container(
-//                               color: Colors.grey[200],
-//                               child: const Center(
-//                                 child: Icon(Icons.error,
-//                                     size: 48, color: Colors.red),
-//                               ),
-//                             );
-//                           },
-//                         ),
-//                         Positioned.fill(
-//                           child: CustomPaint(
-//                             painter: WatermarkPainter(userData: userData),
-//                           ),
-//                         ),
-//                         Positioned(
-//                           bottom: 0,
-//                           left: 0,
-//                           right: 0,
-//                           height: fadeHeight,
-//                           child: Container(
-//                             decoration: BoxDecoration(
-//                               gradient: LinearGradient(
-//                                 begin: Alignment.topCenter,
-//                                 end: Alignment.bottomCenter,
-//                                 colors: [
-//                                   Colors.transparent,
-//                                   backgroundColor.withOpacity(0.1),
-//                                   backgroundColor.withOpacity(0.3),
-//                                   backgroundColor.withOpacity(0.5),
-//                                   backgroundColor.withOpacity(0.7),
-//                                   backgroundColor.withOpacity(0.9),
-//                                   backgroundColor,
-//                                 ],
-//                                 stops: const [
-//                                   0.0,
-//                                   0.2,
-//                                   0.4,
-//                                   0.6,
-//                                   0.8,
-//                                   0.9,
-//                                   1.0
-//                                 ],
-//                               ),
-//                             ),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                   if (userData != null)
-//                     Container(
-//                       width: double.infinity,
-//                       padding: const EdgeInsets.symmetric(
-//                           vertical: 12, horizontal: 12),
-//                       decoration: BoxDecoration(
-//                         color: backgroundColor,
-//                       ),
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           Row(
-//                             mainAxisAlignment: MainAxisAlignment.start,
-//                             crossAxisAlignment: CrossAxisAlignment.center,
-//                             children: [
-//                               Container(
-//                                 width: 58,
-//                                 height: 68,
-//                                 decoration: BoxDecoration(
-//                                   borderRadius: BorderRadius.circular(5),
-//                                   boxShadow: [
-//                                     BoxShadow(
-//                                       color: Colors.black.withOpacity(0.2),
-//                                       blurRadius: 4,
-//                                       offset: const Offset(0, 2),
-//                                     ),
-//                                   ],
-//                                 ),
-//                                 child: ClipRRect(
-//                                   borderRadius: BorderRadius.circular(5),
-//                                   child: userData!['userImage'] != null &&
-//                                           userData!['userImage']
-//                                               .toString()
-//                                               .isNotEmpty
-//                                       ? CachedNetworkImage(
-//                                           imageUrl: userData!['userImage'],
-//                                           fit: BoxFit.cover,
-//                                           placeholder: (context, url) =>
-//                                               Container(
-//                                             color:
-//                                                 Colors.white.withOpacity(0.2),
-//                                             child: const Center(
-//                                               child: CircularProgressIndicator(
-//                                                   strokeWidth: 2),
-//                                             ),
-//                                           ),
-//                                           errorWidget: (context, url, error) =>
-//                                               Container(
-//                                             color:
-//                                                 Colors.white.withOpacity(0.2),
-//                                             child: const Icon(Icons.person,
-//                                                 size: 32, color: Colors.white),
-//                                           ),
-//                                         )
-//                                       : Container(
-//                                           color: Colors.white.withOpacity(0.2),
-//                                           child: const Icon(Icons.person,
-//                                               size: 32, color: Colors.white),
-//                                         ),
-//                                 ),
-//                               ),
-//                               const SizedBox(width: 8),
-//                               Expanded(
-//                                 child: Column(
-//                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                   children: [
-//                                     Text(
-//                                       userData!['firstName'] ?? 'Unknown User',
-//                                       style: const TextStyle(
-//                                         fontWeight: FontWeight.bold,
-//                                         fontSize: 14,
-//                                         color: Colors.white,
-//                                         shadows: [
-//                                           Shadow(
-//                                             offset: Offset(0, 1),
-//                                             blurRadius: 2,
-//                                             color: Color.fromARGB(80, 0, 0, 0),
-//                                           ),
-//                                         ],
-//                                       ),
-//                                       maxLines: 1,
-//                                       overflow: TextOverflow.ellipsis,
-//                                     ),
-//                                     Text(
-//                                       userData!['designation'] ??
-//                                           'No designation',
-//                                       style: const TextStyle(
-//                                         fontSize: 12,
-//                                         color: Colors.white70,
-//                                       ),
-//                                       maxLines: 1,
-//                                       overflow: TextOverflow.ellipsis,
-//                                     ),
-//                                     Text(
-//                                       userData!['phone1'] ?? 'No Number',
-//                                       style: const TextStyle(
-//                                         fontSize: 12,
-//                                         color: Colors.white70,
-//                                       ),
-//                                       maxLines: 1,
-//                                       overflow: TextOverflow.ellipsis,
-//                                     ),
-//                                     Text(
-//                                       userData!['email'] ?? 'No email',
-//                                       style: const TextStyle(
-//                                         fontSize: 12,
-//                                         color: Colors.white70,
-//                                       ),
-//                                       maxLines: 1,
-//                                       overflow: TextOverflow.ellipsis,
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ),
-//                               if (userData!['companyLogo'] != null &&
-//                                   userData!['companyLogo']
-//                                       .toString()
-//                                       .isNotEmpty)
-//                                 Container(
-//                                   width: 50,
-//                                   height: 50,
-//                                   decoration: const BoxDecoration(
-//                                     shape: BoxShape.circle,
-//                                   ),
-//                                   child: ClipOval(
-//                                     child: CachedNetworkImage(
-//                                       imageUrl: userData!['companyLogo'],
-//                                       fit: BoxFit.cover,
-//                                       placeholder: (context, url) =>
-//                                           const Center(
-//                                         child: CircularProgressIndicator(
-//                                           strokeWidth: 2,
-//                                           color: Colors.white54,
-//                                         ),
-//                                       ),
-//                                       errorWidget: (context, url, error) =>
-//                                           const Icon(
-//                                         Icons.business,
-//                                         size: 24,
-//                                         color: Colors.white70,
-//                                       ),
-//                                     ),
-//                                   ),
-//                                 ),
-//                             ],
-//                           ),
-//                           const SizedBox(
-//                               height:
-//                                   16), // Increased to move companyWebsite lower
-//                           if (userData!['companyWebsite'] != null &&
-//                               userData!['companyWebsite'].toString().isNotEmpty)
-//                             Container(
-//                               width: double.infinity,
-//                               padding: const EdgeInsets.symmetric(
-//                                   vertical: 8, horizontal: 8),
-//                               decoration: const BoxDecoration(
-//                                 border: Border(
-//                                   top: BorderSide(
-//                                     color: Colors.white70,
-//                                     width: 1,
-//                                   ),
-//                                 ),
-//                               ),
-//                               child: Center(
-//                                 child: Text(
-//                                   userData!['companyWebsite'],
-//                                   style: const TextStyle(
-//                                     fontSize: 12,
-//                                     color: Colors.white,
-//                                   ),
-//                                   maxLines: 1,
-//                                   overflow: TextOverflow.ellipsis,
-//                                 ),
-//                               ),
-//                             ),
-//                         ],
-//                       ),
-//                     ),
-//                 ],
-//               ),
-//             ),
-//             Container(
-//               decoration: const BoxDecoration(
-//                 color: Colors.white,
-//                 borderRadius: BorderRadius.only(
-//                   bottomLeft: Radius.circular(14),
-//                   bottomRight: Radius.circular(14),
-//                 ),
-//               ),
-//               padding: const EdgeInsets.all(12),
-//               child: Row(
-//                 children: [
-//                   Expanded(
-//                     child: TextButton.icon(
-//                       icon: const Icon(Icons.download,
-//                           size: 20, color: Colors.white),
-//                       label: const Text(
-//                         'Download',
-//                         style: TextStyle(
-//                           color: Colors.white,
-//                           fontWeight: FontWeight.bold,
-//                           letterSpacing: 0.5,
-//                         ),
-//                       ),
-//                       style: TextButton.styleFrom(
-//                         backgroundColor: backgroundColor,
-//                         minimumSize: const Size(double.infinity, 48),
-//                         elevation: 2,
-//                         shape: RoundedRectangleBorder(
-//                             borderRadius: BorderRadius.circular(10)),
-//                       ),
-//                       onPressed: () => _captureAndSaveImage(photoId, photoUrl),
-//                     ),
-//                   ),
-//                   const SizedBox(width: 8),
-//                   Expanded(
-//                     child: TextButton.icon(
-//                       icon: const Icon(Icons.share,
-//                           size: 20, color: Colors.white),
-//                       label: const Text(
-//                         'Share',
-//                         style: TextStyle(
-//                           color: Colors.white,
-//                           fontWeight: FontWeight.bold,
-//                           letterSpacing: 0.5,
-//                         ),
-//                       ),
-//                       style: TextButton.styleFrom(
-//                         backgroundColor: backgroundColor,
-//                         minimumSize: const Size(double.infinity, 48),
-//                         elevation: 2,
-//                         shape: RoundedRectangleBorder(
-//                             borderRadius: BorderRadius.circular(10)),
-//                       ),
-//                       onPressed: () => _shareImage(photoId, photoUrl),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
