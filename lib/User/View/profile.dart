@@ -402,8 +402,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildTextField(
                             'Branch', Icons.store, _branchController),
                         _buildTextField(
-                            'Website', Icons.link, _websiteController,
-                            type: TextInputType.url, prefix: 'https://'),
+                          'Website',
+                          Icons.link,
+                          _websiteController,
+                          type: TextInputType.url,
+                        ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _updateUserData,

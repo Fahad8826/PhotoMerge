@@ -966,7 +966,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       backgroundColor: Colors.white,
                       leading: IconButton(
                         icon: const Icon(Icons.arrow_back),
-                        color: const Color(0xFF4CAF50),
+                        color: Color(0xFF00A19A),
                         onPressed: () {
                           // Set to portrait mode before popping
                           SystemChrome.setPreferredOrientations(
@@ -977,7 +977,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       title: Text(
                         widget.title,
                         style: GoogleFonts.poppins(
-                          color: const Color(0xFF4CAF50),
+                          color: Color(0xFF00A19A),
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
                         ),
