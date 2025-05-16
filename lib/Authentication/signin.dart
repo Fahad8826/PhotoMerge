@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -101,16 +100,8 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       // Check email verification
-      if (!userCredential.user!.emailVerified) {
-        await FirebaseAuth.instance.signOut();
-        setState(() {
-          _error =
-              'Please verify your email before logging in. Check your inbox or spam folder.';
-        });
-        return;
-      }
 
-      // Check if user is active
+      // Get user role
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -125,6 +116,29 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       final fullUserData = userDoc.data() as Map<String, dynamic>;
+      final String role = fullUserData['role'] ?? 'user';
+
+      if (role == 'admin') {
+        // Update user's login status and device ID
+        final String deviceId = await _getDeviceId();
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .update({
+          'isLoggedIn': true,
+          'deviceId': deviceId,
+          'lastLoginAt': FieldValue.serverTimestamp(),
+          'emailVerified': true,
+        });
+
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+              context, '/admin', (route) => false);
+        }
+        return;
+      }
+
+      // For non-admin users, check if user is active
       final isActive = fullUserData['isActive'] ?? false;
 
       if (!isActive) {
@@ -147,20 +161,19 @@ class _LoginPageState extends State<LoginPage> {
         'emailVerified': true,
       });
 
-      // Check if user_profile exists
-      final profileDoc = await FirebaseFirestore.instance
+      // Check if profile_status exists in users collection
+      final userDoc1 = await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
-          .collection('user_profile')
           .get();
 
       String destination = '/'; // Default to home page
-      if (profileDoc.docs.isEmpty) {
-        // If user_profile is empty, navigate to profile page
+      if (!userDoc.exists || userDoc1.data()!['profile_status'] != true) {
+        // If user document doesn't exist or profile_status is not true, navigate to profile page
         destination = '/profile';
       }
 
-      // Success: Navigate to appropriate page
+// Success: Navigate to appropriate page
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
             context, destination, (route) => false);
