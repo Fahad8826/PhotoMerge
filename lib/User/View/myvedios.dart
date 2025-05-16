@@ -3,9 +3,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-// import 'package:photomerge/User/View/home.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+
+class AppTheme {
+  static const Color primaryColor = Color(0xFF00A19A); // Teal main color
+  static const Color secondaryColor =
+      Color(0xFFF8FAFA); // Very light background
+  static const Color accentColor = Color(0xFF005F5C); // Darker teal for accents
+  static const Color cardColor = Colors.white; // White card backgrounds
+  static const Color textColor = Color(0xFF212121); // Primary text
+  static const Color subtitleColor = Color(0xFF757575); // Subtitle text
+}
 
 class AllVideosPage extends StatefulWidget {
   const AllVideosPage({super.key});
@@ -21,11 +30,9 @@ class _AllVideosPageState extends State<AllVideosPage> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchVisible = false;
 
-  // Theme colors and spacing
-  final Color _primaryColor = const Color(0xFF4CAF50);
-  final Color _backgroundColor = Colors.white;
-  final double _standardPadding = 16.0;
-  final double _cardBorderRadius = 20.0;
+  // Theme spacing
+  final double _standardPadding = 12.0;
+  final double _cardBorderRadius = 12.0;
 
   // Categories matching AddVediourl
   final List<String> _categories = [
@@ -33,8 +40,6 @@ class _AllVideosPageState extends State<AllVideosPage> {
     'Tutorial',
     'Entertainment',
     'Vlog',
-    'Gaming',
-    'Music',
     'Other',
   ];
 
@@ -47,12 +52,12 @@ class _AllVideosPageState extends State<AllVideosPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: AppTheme.secondaryColor,
       appBar: AppBar(
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_primaryColor, _primaryColor.withOpacity(0.8)],
+              colors: [AppTheme.primaryColor, AppTheme.accentColor],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -61,7 +66,7 @@ class _AllVideosPageState extends State<AllVideosPage> {
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_rounded,
-              color: Colors.white, size: 28),
+              color: Colors.white, size: 24),
           splashRadius: 24,
           tooltip: 'Back',
         ),
@@ -72,7 +77,7 @@ class _AllVideosPageState extends State<AllVideosPage> {
             'Video Gallery',
             style: GoogleFonts.poppins(
               color: Colors.white,
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -123,21 +128,24 @@ class _AllVideosPageState extends State<AllVideosPage> {
 
   Widget _buildVideosSection() {
     return RefreshIndicator(
-      color: _primaryColor,
+      color: AppTheme.primaryColor,
       onRefresh: () async => setState(() {}),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: EdgeInsets.all(_standardPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildCategoryChips(),
-              const SizedBox(height: 20),
-              _buildVideosGrid(),
-            ],
+      child: Column(
+        children: [
+          // Categories row
+          Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: 12.0,
+              horizontal: _standardPadding,
+            ),
+            child: _buildCategoryChips(),
           ),
-        ),
+
+          // Videos grid
+          Expanded(
+            child: _buildVideosGrid(),
+          ),
+        ],
       ),
     );
   }
@@ -149,31 +157,26 @@ class _AllVideosPageState extends State<AllVideosPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(2, 2),
-          ),
-          BoxShadow(
-            color: Colors.white.withOpacity(0.8),
-            blurRadius: 8,
-            offset: const Offset(-2, -2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: TextField(
         controller: _searchController,
         onChanged: (value) => setState(() => _searchQuery = value),
-        style: GoogleFonts.poppins(fontSize: 16, color: Colors.black87),
+        style: GoogleFonts.poppins(fontSize: 15, color: AppTheme.textColor),
         decoration: InputDecoration(
           hintText: 'Search videos...',
           hintStyle:
-              GoogleFonts.poppins(color: Colors.grey.shade500, fontSize: 16),
-          prefixIcon:
-              Icon(Icons.search_rounded, color: _primaryColor, size: 22),
+              GoogleFonts.poppins(color: AppTheme.subtitleColor, fontSize: 15),
+          prefixIcon: Icon(Icons.search_rounded,
+              color: AppTheme.primaryColor, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: Icon(Icons.clear_rounded,
-                      color: Colors.grey.shade500, size: 20),
+                      color: AppTheme.subtitleColor, size: 18),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -194,11 +197,10 @@ class _AllVideosPageState extends State<AllVideosPage> {
 
   Widget _buildCategoryChips() {
     return SizedBox(
-      height: 40,
+      height: 36,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _categories.length,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
         itemBuilder: (context, index) {
           final category = _categories[index];
           final isSelected = _selectedCategory == category;
@@ -208,9 +210,9 @@ class _AllVideosPageState extends State<AllVideosPage> {
               label: Text(
                 category,
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-                  color: isSelected ? Colors.white : Colors.black87,
+                  color: isSelected ? Colors.white : AppTheme.textColor,
                 ),
               ),
               selected: isSelected,
@@ -219,12 +221,16 @@ class _AllVideosPageState extends State<AllVideosPage> {
                   setState(() => _selectedCategory = category);
                 }
               },
-              backgroundColor: Colors.grey.shade100,
-              selectedColor: _primaryColor,
-              labelPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              backgroundColor: Colors.white,
+              selectedColor: AppTheme.primaryColor,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color:
+                      isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+                  width: 1,
+                ),
               ),
             ),
           );
@@ -265,36 +271,34 @@ class _AllVideosPageState extends State<AllVideosPage> {
           return _buildNoResultsWidget();
         }
 
-        return AnimationLimiter(
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _getGridCrossAxisCount(context),
-              childAspectRatio: 0.7,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: videos.length,
-            itemBuilder: (context, index) {
-              final videoData = videos[index].data() as Map<String, dynamic>;
-              return AnimationConfiguration.staggeredGrid(
-                position: index,
-                duration: const Duration(milliseconds: 400),
-                columnCount: _getGridCrossAxisCount(context),
-                child: ScaleAnimation(
-                  scale: 0.8,
-                  child: FadeInAnimation(
-                    child: VideoCard(
-                      videoData: videoData,
-                      videoId: videos[index].id,
-                      primaryColor: _primaryColor,
-                      borderRadius: _cardBorderRadius,
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: _standardPadding),
+          child: AnimationLimiter(
+            child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 16),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: videos.length,
+              itemBuilder: (context, index) {
+                final videoData = videos[index].data() as Map<String, dynamic>;
+                return AnimationConfiguration.staggeredList(
+                  position: index,
+                  duration: const Duration(milliseconds: 375),
+                  child: SlideAnimation(
+                    verticalOffset: 50.0,
+                    child: FadeInAnimation(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: CompactVideoCard(
+                          videoData: videoData,
+                          videoId: videos[index].id,
+                          borderRadius: _cardBorderRadius,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         );
       },
@@ -303,47 +307,33 @@ class _AllVideosPageState extends State<AllVideosPage> {
 
   int _getGridCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 5;
-    if (width > 900) return 4;
-    if (width > 600) return 3;
+    if (width > 1200) return 6;
+    if (width > 900) return 5;
+    if (width > 600) return 4;
+    if (width > 400) return 3;
     return 2;
   }
 
   Widget _buildLoadingIndicator() {
-    return const SizedBox(
-      height: 300,
-      child: Center(
-        child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
-      ),
+    return const Center(
+      child: CircularProgressIndicator(color: AppTheme.primaryColor),
     );
   }
 
   Widget _buildErrorWidget() {
-    return Container(
-      height: 250,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_cardBorderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline_rounded,
-                color: Colors.redAccent, size: 48),
+                color: Colors.redAccent, size: 42),
             const SizedBox(height: 16),
             Text(
               'Oops! Something went wrong',
               style: GoogleFonts.poppins(
-                color: Colors.black87,
+                color: AppTheme.textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -352,19 +342,20 @@ class _AllVideosPageState extends State<AllVideosPage> {
             Text(
               'Please try again',
               style: GoogleFonts.poppins(
-                  color: Colors.grey.shade600, fontSize: 14),
+                  color: AppTheme.subtitleColor, fontSize: 14),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton(
+            const SizedBox(height: 16),
+            ElevatedButton(
               onPressed: () => setState(() {}),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: _primaryColor),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
               child: Text(
                 'Retry',
-                style: GoogleFonts.poppins(color: _primaryColor),
+                style: GoogleFonts.poppins(),
               ),
             ),
           ],
@@ -374,31 +365,19 @@ class _AllVideosPageState extends State<AllVideosPage> {
   }
 
   Widget _buildEmptyStateWidget() {
-    return Container(
-      height: 250,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_cardBorderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.videocam_off_rounded,
-                color: Colors.grey, size: 48),
+                color: AppTheme.subtitleColor, size: 42),
             const SizedBox(height: 16),
             Text(
               'No videos available',
               style: GoogleFonts.poppins(
-                color: Colors.black87,
+                color: AppTheme.textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -407,7 +386,7 @@ class _AllVideosPageState extends State<AllVideosPage> {
             Text(
               'Add some videos to get started!',
               style: GoogleFonts.poppins(
-                  color: Colors.grey.shade600, fontSize: 14),
+                  color: AppTheme.subtitleColor, fontSize: 14),
             ),
           ],
         ),
@@ -416,30 +395,19 @@ class _AllVideosPageState extends State<AllVideosPage> {
   }
 
   Widget _buildNoResultsWidget() {
-    return Container(
-      height: 250,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_cardBorderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off_rounded, color: Colors.grey, size: 48),
+            const Icon(Icons.search_off_rounded,
+                color: AppTheme.subtitleColor, size: 42),
             const SizedBox(height: 16),
             Text(
               'No results found',
               style: GoogleFonts.poppins(
-                color: Colors.black87,
+                color: AppTheme.textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -448,22 +416,23 @@ class _AllVideosPageState extends State<AllVideosPage> {
             Text(
               'Try different search terms',
               style: GoogleFonts.poppins(
-                  color: Colors.grey.shade600, fontSize: 14),
+                  color: AppTheme.subtitleColor, fontSize: 14),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton(
+            const SizedBox(height: 16),
+            ElevatedButton(
               onPressed: () {
                 _searchController.clear();
                 setState(() => _searchQuery = '');
               },
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: _primaryColor),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
               child: Text(
                 'Clear Search',
-                style: GoogleFonts.poppins(color: _primaryColor),
+                style: GoogleFonts.poppins(),
               ),
             ),
           ],
@@ -473,17 +442,16 @@ class _AllVideosPageState extends State<AllVideosPage> {
   }
 }
 
-class VideoCard extends StatelessWidget {
+// Redesigned compact video card
+class CompactVideoCard extends StatelessWidget {
   final Map<String, dynamic> videoData;
   final String videoId;
-  final Color primaryColor;
   final double borderRadius;
 
-  const VideoCard({
+  const CompactVideoCard({
     super.key,
     required this.videoData,
     required this.videoId,
-    required this.primaryColor,
     required this.borderRadius,
   });
 
@@ -497,20 +465,17 @@ class VideoCard extends StatelessWidget {
         timestamp != null ? _getTimeAgo(timestamp.toDate()) : 'Unknown';
     final youtubeId = _extractYouTubeId(videoUrl);
 
+    // Constrain the card width to a standard size (similar to YouTube mobile)
+    final cardWidth = MediaQuery.of(context).size.width.clamp(0.00, 360.00);
+
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      width: cardWidth,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
       child: Material(
-        color: Colors.white,
+        color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(borderRadius),
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.1),
         child: InkWell(
           borderRadius: BorderRadius.circular(borderRadius),
           onTap: () {
@@ -531,72 +496,60 @@ class VideoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Thumbnail with play overlay
               Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(borderRadius)),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(borderRadius),
+                      topRight: Radius.circular(borderRadius),
+                    ),
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
                       child: _buildThumbnail(youtubeId),
                     ),
                   ),
+                  // Play button overlay
                   Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(borderRadius)),
+                    child: Center(
                       child: Container(
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.6),
-                            ],
-                            stops: const [0.5, 1.0],
-                          ),
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: Center(
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: primaryColor,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: primaryColor.withOpacity(0.4),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 28,
                         ),
                       ),
                     ),
                   ),
+                  // Category pill
                   Positioned(
                     top: 8,
-                    left: 8,
+                    right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         category,
                         style: GoogleFonts.poppins(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -604,27 +557,51 @@ class VideoCard extends StatelessWidget {
                   ),
                 ],
               ),
+
+              // Title and metadata
               Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                    // Thumbnail placeholder or channel icon (optional)
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[200],
+                      ),
+                      child: const Icon(
+                        Icons.account_circle,
+                        color: Colors.grey,
+                        size: 40,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      timeAgo,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$category • $timeAgo',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppTheme.subtitleColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -640,17 +617,27 @@ class VideoCard extends StatelessWidget {
   Widget _buildThumbnail(String youtubeId) {
     if (youtubeId.isNotEmpty) {
       return CachedNetworkImage(
-        imageUrl: 'https://img.youtube.com/vi/$youtubeId/mqdefault.jpg',
+        imageUrl:
+            'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg', // Higher quality thumbnail
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
           color: Colors.grey[200],
-          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          child: const Center(
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ),
         ),
         errorWidget: (context, url, error) => Container(
           color: Colors.grey[200],
           child: const Center(
             child:
-                Icon(Icons.broken_image_rounded, color: Colors.grey, size: 36),
+                Icon(Icons.broken_image_rounded, color: Colors.grey, size: 32),
           ),
         ),
       );
@@ -658,7 +645,7 @@ class VideoCard extends StatelessWidget {
     return Container(
       color: Colors.grey[200],
       child: const Center(
-        child: Icon(Icons.videocam_off_rounded, color: Colors.grey, size: 36),
+        child: Icon(Icons.videocam_off_rounded, color: Colors.grey, size: 32),
       ),
     );
   }
@@ -680,8 +667,8 @@ class VideoCard extends StatelessWidget {
         ),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(12),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -811,10 +798,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _changeQuality(String quality) {
-   
     final currentPosition = _controller.value.position;
 
-    
     if (quality == 'auto') {
       // For auto, use default quality
       _controller.updateValue(
@@ -948,12 +933,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               playedColor: Color(0xFF4CAF50),
               handleColor: Color(0xFF4CAF50),
             ),
-            onReady: () {
-             
-            },
+            onReady: () {},
             bottomActions: [
-             
-
               CurrentPosition(),
               ProgressBar(
                 isExpanded: true,
@@ -1026,36 +1007,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            // Video controls
-                            // Row(
-                            //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            //   children: [
-                            //     _buildControlButton(
-                            //       icon: Icons.replay_10,
-                            //       label: '10s',
-                            //       onTap: _skipBackward,
-                            //     ),
-                            //     _buildControlButton(
-                            //       icon: _playerValue?.isPlaying ?? false
-                            //           ? Icons.pause
-                            //           : Icons.play_arrow,
-                            //       label: _playerValue?.isPlaying ?? false
-                            //           ? 'Pause'
-                            //           : 'Play',
-                            //       onTap: _togglePlayPause,
-                            //     ),
-                            //     _buildControlButton(
-                            //       icon: Icons.forward_10,
-                            //       label: '10s',
-                            //       onTap: _skipForward,
-                            //     ),
-                            //     _buildControlButton(
-                            //       icon: Icons.high_quality,
-                            //       label: _currentQuality,
-                            //       onTap: _showQualitySelector,
-                            //     ),
-                            //   ],
-                            // ),
                           ],
                         ),
                       ),
@@ -1065,44 +1016,5 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             );
           },
         ));
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(50),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: const Color(0xFF4CAF50),
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

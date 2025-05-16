@@ -1,5 +1,5 @@
-import 'dart:io';
 
+import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -100,6 +100,16 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
 
+      // Check email verification
+      if (!userCredential.user!.emailVerified) {
+        await FirebaseAuth.instance.signOut();
+        setState(() {
+          _error =
+              'Please verify your email before logging in. Check your inbox or spam folder.';
+        });
+        return;
+      }
+
       // Check if user is active
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -134,11 +144,26 @@ class _LoginPageState extends State<LoginPage> {
         'isLoggedIn': true,
         'deviceId': deviceId,
         'lastLoginAt': FieldValue.serverTimestamp(),
+        'emailVerified': true,
       });
 
-      // Success: Navigate to home/dashboard
+      // Check if user_profile exists
+      final profileDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .collection('user_profile')
+          .get();
+
+      String destination = '/'; // Default to home page
+      if (profileDoc.docs.isEmpty) {
+        // If user_profile is empty, navigate to profile page
+        destination = '/profile';
+      }
+
+      // Success: Navigate to appropriate page
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+        Navigator.pushNamedAndRemoveUntil(
+            context, destination, (route) => false);
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'An error occurred during sign in';
@@ -161,6 +186,79 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       setState(() {
         _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _resendVerificationEmail() async {
+    final input = _emailController.text.trim();
+    if (input.isEmpty) {
+      setState(() {
+        _error = 'Please enter your email to resend verification';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      String? email;
+
+      final isEmail =
+          RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(input);
+
+      if (isEmail) {
+        email = input;
+      } else {
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phone', isEqualTo: input)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isEmpty) {
+          setState(() {
+            _error = 'No user found with this phone number or email';
+          });
+          return;
+        }
+
+        final userData = querySnapshot.docs.first.data();
+        email = userData['email'];
+      }
+
+      // Sign in to get the user
+      await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+        email: email!,
+        password: _passwordController.text.trim(),
+      )
+          .then((userCredential) async {
+        if (!userCredential.user!.emailVerified) {
+          await userCredential.user!.sendEmailVerification();
+          setState(() {
+            _error =
+                'Verification email resent. Please check your inbox or spam folder.';
+          });
+          await FirebaseAuth.instance.signOut();
+        }
+      });
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'Error resending verification email';
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No user found with this email';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Incorrect password';
+      }
+      setState(() {
+        _error = errorMessage;
       });
     } finally {
       setState(() {
@@ -194,24 +292,6 @@ class _LoginPageState extends State<LoginPage> {
       return 'unknown_device';
     } catch (e) {
       return DateTime.now().millisecondsSinceEpoch.toString();
-    }
-  }
-
-  Future<void> logout() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'isLoggedIn': false,
-          'deviceId': '',
-        });
-      }
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      print('Error during logout: $e');
     }
   }
 
@@ -430,6 +510,18 @@ class _LoginPageState extends State<LoginPage> {
                                             TextStyle(color: Colors.red[700]),
                                       ),
                                     ),
+                                    if (_error!
+                                        .contains('Please verify your email'))
+                                      TextButton(
+                                        onPressed: _resendVerificationEmail,
+                                        child: Text(
+                                          'Resend',
+                                          style: TextStyle(
+                                            color: Color.fromRGBO(
+                                                143, 148, 251, 1),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -467,30 +559,19 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.all(8.0),
                           child: FadeInUp(
                             duration: Duration(milliseconds: 2000),
-                            child: GestureDetector(
-                              onTap: () {
-                                // Handle forgot password
-                              },
-                              // child: Text(
-                              //   "Forgot Password?",
-                              //   style: TextStyle(
-                              //     color: Color.fromRGBO(143, 148, 251, 1),
-                              //   ),
-                              // ),
-                              child: TextButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            ForgotPasswordPage(),
-                                      ));
-                                },
-                                child: Text(
-                                  'Forgot Password',
-                                  style: TextStyle(
-                                    color: Color.fromRGBO(143, 148, 251, 1),
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ForgotPasswordPage(),
                                   ),
+                                );
+                              },
+                              child: Text(
+                                'Forgot Password',
+                                style: TextStyle(
+                                  color: Color.fromRGBO(143, 148, 251, 1),
                                 ),
                               ),
                             ),
@@ -508,8 +589,8 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                               TextButton(
-                                onPressed: () =>
-                                    Navigator.pushNamed(context, '/signup'),
+                                onPressed: () => Navigator.pushReplacementNamed(
+                                    context, '/signup'),
                                 child: Text(
                                   "Sign Up",
                                   style: TextStyle(
