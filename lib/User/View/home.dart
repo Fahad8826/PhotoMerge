@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -7,6 +11,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:photomerge/User/View/categorey.dart';
 import 'package:photomerge/User/View/imagedetails.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'
+    as flutterSecureStorage;
+import 'package:uuid/uuid.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -18,13 +25,16 @@ class UserDashboard extends StatefulWidget {
 class _UserDashboardState extends State<UserDashboard> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String? userId;
+  String? _currentDeviceId;
+  StreamSubscription<DocumentSnapshot>? _userDocSub;
   Map<String, dynamic>? userData;
   int _currentCarouselIndex = 0;
   final ScrollController _scrollController = ScrollController();
 
   // Modern UI theme colors - using teal/green palette from reference image
   static const Color primaryColor = Color(0xFF00A19A); // Teal main color
-  static const Color secondaryColor =Color(0xFFF8FAFA); // Very light background
+  static const Color secondaryColor =
+      Color(0xFFF8FAFA); // Very light background
   static const Color accentColor = Color(0xFF005F5C); // Darker teal for accents
   static const Color cardColor = Colors.white; // White card backgrounds
   static const Color textColor = Color(0xFF212121); // Primary text
@@ -35,6 +45,7 @@ class _UserDashboardState extends State<UserDashboard> {
     super.initState();
     userId = FirebaseAuth.instance.currentUser?.uid;
     _getUserData();
+    _setupAutoLogoutListener();
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -45,6 +56,7 @@ class _UserDashboardState extends State<UserDashboard> {
 
   @override
   void dispose() {
+    _userDocSub?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -64,6 +76,68 @@ class _UserDashboardState extends State<UserDashboard> {
           SnackBar(content: Text('Error fetching user data: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _setupAutoLogoutListener() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    _currentDeviceId = await _getDeviceId(); // Your existing method
+
+    _userDocSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) async {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data() as Map<String, dynamic>;
+      final serverDeviceId = data['deviceId'];
+
+      if (serverDeviceId != _currentDeviceId) {
+        // Auto logout - session taken over on another device
+        await logout(); // your logout method
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+              context, '/login', (route) => false);
+        }
+      }
+    });
+  }
+
+  Future<String> _getDeviceId() async {
+    // You need to add the device_info_plus package to your pubspec.yaml
+    // dependencies:
+    //   device_info_plus: ^4.0.0
+
+    try {
+      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        return androidInfo.id; // Unique ID for Android
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor!; // Unique ID for iOS
+      } else if (kIsWeb) {
+        // For web, we need to create a semi-persistent ID
+        // This is not as reliable but provides a basic implementation
+        const storage = flutterSecureStorage.FlutterSecureStorage();
+        String? deviceId = await storage.read(key: 'device_id');
+
+        if (deviceId == null) {
+          deviceId = Uuid().v4(); // Generate a UUID
+          await storage.write(key: 'device_id', value: deviceId);
+        }
+
+        return deviceId;
+      }
+
+      return 'unknown_device';
+    } catch (e) {
+      // Fallback to a random ID if device info cannot be retrieved
+      return DateTime.now().millisecondsSinceEpoch.toString();
     }
   }
 

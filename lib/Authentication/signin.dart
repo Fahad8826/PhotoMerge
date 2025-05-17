@@ -81,14 +81,17 @@ class _LoginPageState extends State<LoginPage> {
       if (userQuerySnapshot.docs.isNotEmpty) {
         final userData = userQuerySnapshot.docs.first.data();
         final bool isLoggedInElsewhere = userData['isLoggedIn'] ?? false;
-        final String deviceId = userData['deviceId'] ?? '';
+        final String existingDeviceId = userData['deviceId'] ?? '';
         final String currentDeviceId = await _getDeviceId();
 
-        if (isLoggedInElsewhere && deviceId != currentDeviceId) {
-          setState(() {
-            _error = 'This account is already logged in on another device';
-          });
-          return;
+        if (isLoggedInElsewhere && existingDeviceId != currentDeviceId) {
+          final shouldForceLogout = await _showForceLogoutDialog(context);
+          if (!shouldForceLogout) {
+            setState(() {
+              _error = 'Login cancelled by user.';
+            });
+            return;
+          }
         }
       }
 
@@ -205,6 +208,57 @@ class _LoginPageState extends State<LoginPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<bool> _showForceLogoutDialog(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false, // Prevents dismissing by tapping outside
+          builder: (context) => AlertDialog(
+            title: const Text(
+              'Force Logout',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            content: const Text(
+              'This account is already logged in on another device. Do you want to log out from that device and continue?',
+              style: TextStyle(fontSize: 16),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.circular(12), // Consistent corner radius
+            ),
+            backgroundColor:
+                Theme.of(context).colorScheme.surface, // Theme-aware background
+            actionsPadding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 8), // Standard padding
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(100, 40), // Consistent button size
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<void> _resendVerificationEmail() async {

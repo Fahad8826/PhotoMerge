@@ -418,8 +418,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
-                                width: 48, // Reduced from 58
-                                height: 58, // Reduced from 68
+                                width: 78, // Reduced from 58
+                                height: 78, // Reduced from 68
                                 decoration: BoxDecoration(
                                   borderRadius:
                                       BorderRadius.circular(4), // Adjusted
@@ -517,6 +517,16 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                                    Text(
+                                      userData!['companyWebsite'] ??
+                                          "No Website",
+                                      style: const TextStyle(
+                                        fontSize: 11, // Reduced from 12
+                                        color: Colors.white,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -525,8 +535,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       .toString()
                                       .isNotEmpty)
                                 Container(
-                                  width: 50, // Reduced from 50
-                                  height: 50, // Reduced from 50
+                                  width: 55, // Reduced from 50
+                                  height: 55, // Reduced from 50
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
                                   ),
@@ -552,34 +562,6 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 12), // Adjusted from 16
-                          if (userData!['companyWebsite'] != null &&
-                              userData!['companyWebsite'].toString().isNotEmpty)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                  horizontal: 6), // Reduced padding
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  top: BorderSide(
-                                    color: Colors.white70,
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  userData!['companyWebsite'],
-                                  style: const TextStyle(
-                                    fontSize: 11, // Reduced from 12
-                                    color: Colors.white,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
                         ],
                       ),
                     ),
