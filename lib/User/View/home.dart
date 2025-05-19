@@ -83,7 +83,7 @@ class _UserDashboardState extends State<UserDashboard> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _currentDeviceId = await _getDeviceId(); // Your existing method
+    _currentDeviceId = await _getDeviceId();
 
     _userDocSub = FirebaseFirestore.instance
         .collection('users')
@@ -93,12 +93,19 @@ class _UserDashboardState extends State<UserDashboard> {
       if (!snapshot.exists) return;
 
       final data = snapshot.data() as Map<String, dynamic>;
-      final serverDeviceId = data['deviceId'];
+      final serverDeviceId = data['deviceId'] ?? '';
+      final isLoggedIn = data['isLoggedIn'] ?? false;
 
-      if (serverDeviceId != _currentDeviceId) {
-        // Auto logout - session taken over on another device
-        await logout(); // your logout method
+      // Only trigger logout if the deviceId changes and the user is still logged in
+      if (isLoggedIn &&
+          serverDeviceId != _currentDeviceId &&
+          serverDeviceId.isNotEmpty) {
+        await logout();
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Session ended: Logged in from another device')),
+          );
           Navigator.pushNamedAndRemoveUntil(
               context, '/login', (route) => false);
         }

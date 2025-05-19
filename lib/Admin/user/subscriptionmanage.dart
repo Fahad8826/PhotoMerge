@@ -93,22 +93,14 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
             name: 'Standard Plan',
             duration: const Duration(days: 30),
             price: 300,
-            features: [
-              'Download watermark-free images',
-              'Access to all subcategories'
-            ],
+            features: ['Access to all fetaures for 1 month'],
             categorySpecific: true,
           ),
           SubscriptionPlan(
             name: 'Premium Plan',
             duration: const Duration(days: 365),
             price: 1000,
-            features: [
-              'Download watermark-free images',
-              'Access to all subcategories',
-              'Priority customer support',
-              'Early access to new features'
-            ],
+            features: ['Access to all fetaures for 6 month'],
             categorySpecific: true,
           ),
         ];
@@ -118,24 +110,9 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
       _categoryPlans['Universal'] = [
         SubscriptionPlan(
           name: 'Universal Standard',
-          duration: const Duration(days: 30),
+          duration: const Duration(days: 60),
           price: 500,
-          features: [
-            'Access to all categories',
-            'Download watermark-free images'
-          ],
-          categorySpecific: false,
-        ),
-        SubscriptionPlan(
-          name: 'Universal Premium',
-          duration: const Duration(days: 365),
-          price: 1800,
-          features: [
-            'Access to all categories',
-            'Download watermark-free images',
-            'Priority customer support',
-            'Early access to new features'
-          ],
+          features: ['Access to all fetaures for 2 month'],
           categorySpecific: false,
         ),
       ];

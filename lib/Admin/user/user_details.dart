@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -115,34 +116,84 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
   Future<File> _savePdfToDownloads(File tempFile, String userId) async {
     try {
       Directory? downloadsDir;
+      final fileName =
+          'user_${userId}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+
       if (Platform.isAndroid) {
+        // Primary approach: Try the standard Downloads directory
         downloadsDir = Directory('/storage/emulated/0/Download');
-        if (!await downloadsDir.exists()) {
+
+        // Check if directory exists and is accessible
+        if (!await downloadsDir.exists() ||
+            !(await _canWriteToDirectory(downloadsDir))) {
+          // Alternative approach: Use External Storage Directory as fallback
           downloadsDir = await getExternalStorageDirectory();
+
+          // If still not accessible, try alternative external directories
+          if (downloadsDir == null ||
+              !(await _canWriteToDirectory(downloadsDir))) {
+            final externalDirs = await getExternalStorageDirectories();
+            if (externalDirs != null && externalDirs.isNotEmpty) {
+              downloadsDir = externalDirs.first;
+            }
+          }
+        }
+
+        // As last resort, use app's directory
+        if (downloadsDir == null ||
+            !(await _canWriteToDirectory(downloadsDir))) {
+          downloadsDir = await getApplicationDocumentsDirectory();
         }
       } else if (Platform.isIOS) {
+        // On iOS, save to app's Documents directory
         downloadsDir = await getApplicationDocumentsDirectory();
       } else {
+        // Fallback for other platforms
         downloadsDir = await getTemporaryDirectory();
       }
 
-      final fileName =
-          'user_${userId}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
-      final finalFile = File(path.join(downloadsDir!.path, fileName));
+      // Ensure the directory exists
+      if (!await downloadsDir!.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      final finalFile = File(path.join(downloadsDir.path, fileName));
+
+      // Copy the temp file to the final location
       return await tempFile.copy(finalFile.path);
     } catch (e) {
       print('Error saving PDF to downloads: $e');
-      return tempFile;
+      return tempFile; // Return the original file if the operation fails
+    }
+  }
+
+// Helper method to check if a directory is writable
+  Future<bool> _canWriteToDirectory(Directory directory) async {
+    try {
+      // Try to create a temporary file in the directory
+      final testFile = File(
+          '${directory.path}/write_test_${DateTime.now().millisecondsSinceEpoch}.tmp');
+      await testFile.writeAsString('test');
+      await testFile.delete();
+      return true;
+    } catch (e) {
+      print('Directory is not writable: ${directory.path}, Error: $e');
+      return false;
     }
   }
 
   Future<void> _downloadUserDetails(BuildContext context,
       Map<String, dynamic> userData, String userId) async {
+    // Store the context at the beginning of the function
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
+      // Show loading dialog
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const AlertDialog(
+        builder: (dialogContext) => const AlertDialog(
           content: Row(
             children: [
               CircularProgressIndicator(),
@@ -153,68 +204,90 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
         ),
       );
 
-      // ✅ FIXED: Corrected method call with profileData
+      // Generate PDF
       final tempPdfFile =
           await _generatePdf(userData, widget.profileData, userId);
 
-      final statuses = await [
-        Permission.storage,
-        if (Platform.isAndroid) Permission.manageExternalStorage,
-      ].request();
+      // Check Android version for appropriate permission request
+      bool isAndroid13OrAbove = false;
+      if (Platform.isAndroid) {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        isAndroid13OrAbove = androidInfo.version.sdkInt >= 33;
+      }
 
-      final isStorageGranted = statuses[Permission.storage]?.isGranted ==
-              true ||
-          (Platform.isAndroid &&
-              statuses[Permission.manageExternalStorage]?.isGranted == true);
+      // Request appropriate permissions based on platform and version
+      bool permissionGranted = false;
+
+      if (Platform.isAndroid) {
+        if (isAndroid13OrAbove) {
+          // For Android 13+ (API 33+), we need different permissions
+          final status = await Permission.photos.request();
+          permissionGranted = status.isGranted;
+        } else {
+          // For Android 12 and below
+          final statuses = await [
+            Permission.storage,
+            Permission.manageExternalStorage,
+          ].request();
+
+          permissionGranted = statuses[Permission.storage]?.isGranted == true ||
+              statuses[Permission.manageExternalStorage]?.isGranted == true;
+        }
+      } else if (Platform.isIOS) {
+        // iOS doesn't need explicit permission for app documents directory
+        permissionGranted = true;
+      }
 
       File finalPdfFile;
 
-      if (isStorageGranted) {
+      if (permissionGranted) {
         finalPdfFile = await _savePdfToDownloads(tempPdfFile, userId);
         await tempPdfFile.delete();
         print('PDF saved to: ${finalPdfFile.path}');
+
+        // Show success message
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(
+                'PDF saved successfully to: ${path.basename(finalPdfFile.path)}'),
+            duration: Duration(seconds: 3),
+          ),
+        );
       } else {
         finalPdfFile = tempPdfFile;
         print('Storage permission denied. Using temporary file.');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Storage permission denied. PDF will not be saved to Downloads.'),
-            ),
-          );
-        }
-      }
 
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-
-      final result = await OpenFile.open(finalPdfFile.path);
-      if (result.type != ResultType.done && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening PDF: ${result.message}')),
+        // Show permission denied message
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Storage permission denied. PDF will be opened but not saved to Downloads.'),
+            duration: Duration(seconds: 5),
+          ),
         );
       }
 
-      if (isStorageGranted && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('PDF saved to Downloads folder: ${finalPdfFile.path}'),
-          ),
+      // Dismiss the loading dialog if navigator is still valid
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+
+      // Open the PDF file
+      final result = await OpenFile.open(finalPdfFile.path);
+      if (result.type != ResultType.done) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Error opening PDF: ${result.message}')),
         );
       }
     } catch (e) {
       print('Error generating or saving PDF: $e');
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      // Dismiss the loading dialog if navigator is still valid
+      if (navigator.canPop()) {
+        navigator.pop();
       }
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error generating or saving PDF: $e')),
-        );
-      }
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Error generating or saving PDF: $e')),
+      );
     }
   }
 
