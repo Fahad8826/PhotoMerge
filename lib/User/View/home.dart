@@ -1,19 +1,18 @@
-import 'dart:async';
-import 'dart:io';
-import 'package:carousel_slider/carousel_slider.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:photomerge/User/View/categorey.dart';
 import 'package:photomerge/User/View/imagedetails.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'
-    as flutterSecureStorage;
-import 'package:uuid/uuid.dart';
+import 'package:photomerge/User/View/provider/authprovider.dart';
+import 'package:photomerge/User/View/provider/carousalprovider.dart';
+import 'package:photomerge/User/View/provider/categoryprovider.dart';
+import 'package:photomerge/User/View/provider/recentimage_provider.dart';
+import 'package:photomerge/User/View/provider/userprovider.dart';
+import 'package:provider/provider.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -23,29 +22,22 @@ class UserDashboard extends StatefulWidget {
 }
 
 class _UserDashboardState extends State<UserDashboard> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String? userId;
-  String? _currentDeviceId;
-  StreamSubscription<DocumentSnapshot>? _userDocSub;
-  Map<String, dynamic>? userData;
-  int _currentCarouselIndex = 0;
   final ScrollController _scrollController = ScrollController();
-
-  // Modern UI theme colors - using teal/green palette from reference image
-  static const Color primaryColor = Color(0xFF00A19A); // Teal main color
-  static const Color secondaryColor =
-      Color(0xFFF8FAFA); // Very light background
-  static const Color accentColor = Color(0xFF005F5C); // Darker teal for accents
-  static const Color cardColor = Colors.white; // White card backgrounds
-  static const Color textColor = Color(0xFF212121); // Primary text
-  static const Color subtitleColor = Color(0xFF757575); // Secondary text
 
   @override
   void initState() {
     super.initState();
-    userId = FirebaseAuth.instance.currentUser?.uid;
-    _getUserData();
-    _setupAutoLogoutListener();
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<UserDataProvider>().fetchUserData(userId);
+        context.read<CarouselProvider>().fetchCarouselImages();
+        context.read<CategoriesProvider>().fetchCategories();
+        context.read<RecentImagesProvider>().fetchRecentImages();
+      });
+    }
+
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -56,123 +48,45 @@ class _UserDashboardState extends State<UserDashboard> {
 
   @override
   void dispose() {
-    _userDocSub?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _getUserData() async {
-    if (userId == null) return;
-    try {
-      final doc = await _firestore.collection('user_profile').doc(userId).get();
-      if (doc.exists && mounted) {
-        setState(() {
-          userData = doc.data();
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching user data: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _setupAutoLogoutListener() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    _currentDeviceId = await _getDeviceId();
-
-    _userDocSub = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .listen((snapshot) async {
-      if (!snapshot.exists) return;
-
-      final data = snapshot.data() as Map<String, dynamic>;
-      final serverDeviceId = data['deviceId'] ?? '';
-      final isLoggedIn = data['isLoggedIn'] ?? false;
-
-      // Only trigger logout if the deviceId changes and the user is still logged in
-      if (isLoggedIn &&
-          serverDeviceId != _currentDeviceId &&
-          serverDeviceId.isNotEmpty) {
-        await logout();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Session ended: Logged in from another device')),
-          );
-          Navigator.pushNamedAndRemoveUntil(
-              context, '/login', (route) => false);
-        }
-      }
-    });
-  }
-
-  Future<String> _getDeviceId() async {
-    // You need to add the device_info_plus package to your pubspec.yaml
-    // dependencies:
-    //   device_info_plus: ^4.0.0
-
-    try {
-      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-
-      if (Platform.isAndroid) {
-        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        return androidInfo.id; // Unique ID for Android
-      } else if (Platform.isIOS) {
-        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-        return iosInfo.identifierForVendor!; // Unique ID for iOS
-      } else if (kIsWeb) {
-        // For web, we need to create a semi-persistent ID
-        // This is not as reliable but provides a basic implementation
-        const storage = flutterSecureStorage.FlutterSecureStorage();
-        String? deviceId = await storage.read(key: 'device_id');
-
-        if (deviceId == null) {
-          deviceId = Uuid().v4(); // Generate a UUID
-          await storage.write(key: 'device_id', value: deviceId);
-        }
-
-        return deviceId;
-      }
-
-      return 'unknown_device';
-    } catch (e) {
-      // Fallback to a random ID if device info cannot be retrieved
-      return DateTime.now().millisecondsSinceEpoch.toString();
-    }
-  }
+  // Modern UI theme colors - matching original page
+  static const Color primaryColor = Color(0xFF00A19A); // Teal main color
+  static const Color secondaryColor = Color(0xFFF8FAFA); // Light background
+  static const Color accentColor = Color(0xFF005F5C); // Darker teal
+  static const Color cardColor = Colors.white; // White cards
+  static const Color textColor = Color(0xFF212121); // Primary text
+  static const Color subtitleColor = Color(0xFF757575); // Secondary text
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
     return Theme(
       data: ThemeData(
         primaryColor: primaryColor,
         scaffoldBackgroundColor: secondaryColor,
         textTheme: GoogleFonts.poppinsTextTheme(
           Theme.of(context).textTheme.copyWith(
-                headlineMedium: TextStyle(
+                headlineMedium: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),
-                headlineSmall: TextStyle(
+                headlineSmall: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),
-                titleMedium: TextStyle(
+                titleMedium: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: textColor,
                 ),
-                bodyMedium: TextStyle(fontSize: 14, color: textColor),
-                bodySmall: TextStyle(fontSize: 12, color: subtitleColor),
+                bodyMedium: const TextStyle(fontSize: 14, color: textColor),
+                bodySmall: const TextStyle(fontSize: 12, color: subtitleColor),
               ),
         ),
         iconTheme: const IconThemeData(color: accentColor),
@@ -195,55 +109,53 @@ class _UserDashboardState extends State<UserDashboard> {
           ),
         ),
       ),
-      child: PopScope(
-        canPop: false, // Prevent default pop
-        onPopInvoked: (didPop) async {
-          if (!didPop) {
-            final shouldExit = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                title: const Text(
-                  'Exit App',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                content: const Text(
-                  'Are you sure you want to exit the app?',
-                  style: TextStyle(color: Colors.black87),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.black),
-                    ),
-                  ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      backgroundColor: primaryColor,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text(
-                      'Exit',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
+      child: WillPopScope(
+        onWillPop: () async {
+          final shouldExit = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-            );
+              title: const Text(
+                'Exit App',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: const Text(
+                'Are you sure you want to exit the app?',
+                style: TextStyle(color: Colors.black87),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    backgroundColor: primaryColor,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text(
+                    'Exit',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
 
-            if (shouldExit == true) {
-              // Exit the app
-              Navigator.of(context).maybePop(); // or SystemNavigator.pop();
-            }
+          if (shouldExit == true) {
+            SystemNavigator.pop();
+            return false; // prevent default pop since SystemNavigator.pop() exits
           }
+          return false;
         },
         child: Scaffold(
           backgroundColor: secondaryColor,
@@ -276,19 +188,24 @@ class _UserDashboardState extends State<UserDashboard> {
               ),
             ],
           ),
-          drawer: userId != null ? _buildDrawer() : null,
+          drawer: userId != null ? _buildDrawer(context) : null,
           body: RefreshIndicator(
             color: primaryColor,
-            onRefresh: _getUserData,
+            onRefresh: () async {
+              await context.read<UserDataProvider>().fetchUserData(userId);
+              await context.read<CarouselProvider>().fetchCarouselImages();
+              await context.read<CategoriesProvider>().fetchCategories();
+              await context.read<RecentImagesProvider>().fetchRecentImages();
+            },
             child: CustomScrollView(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(),
               slivers: [
-                SliverToBoxAdapter(child: _buildCarousel()),
-                SliverToBoxAdapter(child: _buildWelcomeSection()),
-                SliverToBoxAdapter(child: _buildCategoriesSection()),
-                SliverToBoxAdapter(child: _buildRecentImagesSection()),
-                SliverToBoxAdapter(child: SizedBox(height: 80)),
+                SliverToBoxAdapter(child: buildCarousel(context)),
+                SliverToBoxAdapter(child: buildWelcomeSection(context)),
+                SliverToBoxAdapter(child: buildCategoriesSection(context)),
+                SliverToBoxAdapter(child: buildRecentImagesSection(context)),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ),
           ),
@@ -307,12 +224,10 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  Widget _buildCarousel() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream:
-          _firestore.collection('carousel_images').doc('images').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+  Widget buildCarousel(BuildContext context) {
+    return Consumer<CarouselProvider>(
+      builder: (context, provider, child) {
+        if (provider.imageUrls.isEmpty && provider.errorMessage == null) {
           return Container(
             height: 210,
             color: Colors.grey[200],
@@ -322,7 +237,7 @@ class _UserDashboardState extends State<UserDashboard> {
           );
         }
 
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+        if (provider.errorMessage != null || provider.imageUrls.isEmpty) {
           return Container(
             height: 220,
             color: Colors.grey[200],
@@ -334,9 +249,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       color: Colors.grey, size: 48),
                   const SizedBox(height: 8),
                   Text(
-                    snapshot.hasError
-                        ? 'Error loading images'
-                        : 'No images available',
+                    provider.errorMessage ?? 'No images available',
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],
@@ -345,152 +258,341 @@ class _UserDashboardState extends State<UserDashboard> {
           );
         }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final List<String> imageUrls =
-            (data?['urls'] as List<dynamic>?)?.cast<String>() ?? [];
-
-        if (imageUrls.isEmpty) {
-          return Container(
-            height: 220,
-            color: Colors.grey[200],
-            child: const Center(child: Text('No carousel images available')),
-          );
-        }
-
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Stack(
-              children: [
-                CarouselSlider(
-                  key: const ValueKey('carousel'),
-                  options: CarouselOptions(
-                    height: 250,
-                    autoPlay: true,
-                    autoPlayInterval: const Duration(seconds: 5),
-                    autoPlayAnimationDuration:
-                        const Duration(milliseconds: 800),
-                    autoPlayCurve: Curves.easeInOut,
-                    enlargeCenterPage: true,
-                    viewportFraction: 1.0,
-                    enableInfiniteScroll: true,
-                    onPageChanged: (index, reason) {
-                      setState(() {
-                        _currentCarouselIndex = index;
-                      });
-                    },
-                  ),
-                  items: imageUrls.map((imageUrl) {
-                    return Container(
-                      width: MediaQuery.of(context).size.width,
-                      color: Colors.transparent,
-                      child: AspectRatio(
-                        aspectRatio: 1 / 4, // matches your image aspect ratio
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.contain, // prevents cropping
-                          alignment: Alignment.center,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                color: primaryColor,
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Icon(Icons.error_outline,
-                                  color: Colors.red, size: 32),
-                            ),
+        return Stack(
+          children: [
+            CarouselSlider(
+              key: const ValueKey('carousel'),
+              options: CarouselOptions(
+                height: 250,
+                autoPlay: true,
+                autoPlayInterval: const Duration(seconds: 5),
+                autoPlayAnimationDuration: const Duration(milliseconds: 800),
+                autoPlayCurve: Curves.easeInOut,
+                enlargeCenterPage: true,
+                viewportFraction: 1.0,
+                enableInfiniteScroll: true,
+                onPageChanged: (index, reason) {
+                  provider.setCurrentIndex(index);
+                },
+              ),
+              items: provider.imageUrls.map((imageUrl) {
+                return Container(
+                  width: MediaQuery.of(context).size.width,
+                  color: Colors.transparent,
+                  child: AspectRatio(
+                    aspectRatio: 1 / 4,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: primaryColor,
                           ),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-                Positioned(
-                  bottom: 20,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: imageUrls.asMap().entries.map((entry) {
-                      return Container(
-                        width: 8.0,
-                        height: 8.0,
-                        margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentCarouselIndex == entry.key
-                              ? Colors.white
-                              : Colors.white.withAlpha(102),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: Icon(Icons.error_outline,
+                              color: Colors.red, size: 32),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                );
+              }).toList(),
+            ),
+            Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: provider.imageUrls.asMap().entries.map((entry) {
+                  return Container(
+                    width: 8.0,
+                    height: 8.0,
+                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: provider.currentIndex == entry.key
+                          ? Colors.white
+                          : Colors.white.withAlpha(102),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildRecentImagesSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget buildWelcomeSection(BuildContext context) {
+    return Consumer<UserDataProvider>(
+      builder: (context, provider, child) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+          child: Row(
             children: [
-              Text(
-                'Recent Images',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        text:
+                            'Welcome${provider.userData?['firstName']?.isNotEmpty == true ? ", ${provider.userData!['firstName']}" : ""}',
+                        style: GoogleFonts.oswald(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/listimages');
-                },
-                style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    const SizedBox(height: 15),
+                    Text(
+                      'Discover and organize your photos and videos',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(fontSize: 15),
+                    ),
+                    if (provider.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          provider.errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                  ],
                 ),
-                child: Text(
-                  'See All',
-                  style: GoogleFonts.poppins(
+              ),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                      color: primaryColor.withOpacity(0.2), width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.notifications_none_rounded,
                     color: primaryColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          StreamBuilder<QuerySnapshot>(
-            stream: _firestore
-                .collectionGroup('images')
-                .orderBy('timestamp', descending: true)
-                .limit(10)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                  height: 230,
-                  child: Center(
-                    child: CircularProgressIndicator(),
+        );
+      },
+    );
+  }
+
+  Widget buildCategoriesSection(BuildContext context) {
+    return Consumer<CategoriesProvider>(
+      builder: (context, provider, child) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Categories',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
                   ),
-                );
-              }
-              if (snapshot.hasError) {
-                return const SizedBox(
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/Category');
+                    },
+                    child: Text(
+                      'See All',
+                      style: GoogleFonts.poppins(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (provider.errorMessage != null)
+                SizedBox(
+                  height: 100,
+                  child: Center(child: Text(provider.errorMessage!)),
+                )
+              else if (provider.categories.isEmpty)
+                const SizedBox(
+                  height: 100,
+                  child: Center(child: Text('No categories available')),
+                )
+              else
+                SizedBox(
+                  height: 120,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: provider.categories.length,
+                    itemBuilder: (context, index) {
+                      final categoryData = provider.categories[index].data()
+                          as Map<String, dynamic>;
+                      final name = categoryData['name'] as String? ??
+                          'Category ${index + 1}';
+                      final imageUrl =
+                          categoryData['image_url'] as String? ?? '';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    Mycategory(categoryFilter: name),
+                              ),
+                            );
+                          },
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 70,
+                                height: 70,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      spreadRadius: 1,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: imageUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: imageUrl,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              Container(
+                                            color: Colors.grey[200],
+                                            child: const Center(
+                                              child: SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  color: primaryColor,
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) =>
+                                              Container(
+                                            color: Colors.grey[200],
+                                            child: const Icon(
+                                              Icons.error,
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: Colors.grey[200],
+                                          child: const Icon(
+                                            Icons.category,
+                                            color: Colors.grey,
+                                            size: 30,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: 70,
+                                child: Text(
+                                  name,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w500,
+                                    color: textColor,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildRecentImagesSection(BuildContext context) {
+    return Consumer<RecentImagesProvider>(
+      builder: (context, provider, child) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Recent Images',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/listimages');
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                    child: Text(
+                      'See All',
+                      style: GoogleFonts.poppins(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (provider.errorMessage != null)
+                const SizedBox(
                   height: 230,
                   child: Center(
                     child: Text(
@@ -498,139 +600,135 @@ class _UserDashboardState extends State<UserDashboard> {
                       style: TextStyle(color: Colors.redAccent),
                     ),
                   ),
-                );
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SizedBox(
+                )
+              else if (provider.images.isEmpty)
+                const SizedBox(
                   height: 230,
-                  child: Center(
-                    child: Text('No images available'),
-                  ),
-                );
-              }
-              final images = snapshot.data!.docs;
-              return SizedBox(
-                height: 230,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: images.length,
-                  itemBuilder: (context, index) {
-                    final imageData =
-                        images[index].data() as Map<String, dynamic>;
-                    final imageUrl = imageData['image_url'] as String? ?? '';
-                    final category =
-                        imageData['category'] as String? ?? 'Uncategorized';
-                    final timestamp = imageData['timestamp'] as Timestamp?;
-                    final timeAgo = timestamp != null
-                        ? _getTimeAgo(timestamp.toDate())
-                        : 'Unknown';
+                  child: Center(child: Text('No images available')),
+                )
+              else
+                SizedBox(
+                  height: 230,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: provider.images.length,
+                    itemBuilder: (context, index) {
+                      final imageData =
+                          provider.images[index].data() as Map<String, dynamic>;
+                      final imageUrl = imageData['image_url'] as String? ?? '';
+                      final category =
+                          imageData['category'] as String? ?? 'Uncategorized';
+                      final timestamp = imageData['timestamp'] as Timestamp?;
+                      final timeAgo = timestamp != null
+                          ? _getTimeAgo(timestamp.toDate())
+                          : 'Unknown';
 
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ImageDetailView(
-                              photoId: images[index].id,
-                              photoUrl: imageUrl,
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImageDetailView(
+                                photoId: provider.images[index].id,
+                                photoUrl: imageUrl,
+                              ),
                             ),
+                          );
+                        },
+                        child: Container(
+                          width: 140,
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                      child: Container(
-                        width: 140,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16)),
-                              child: Container(
-                                height: 150,
-                                width: double.infinity,
-                                color: Colors.grey[200],
-                                child: imageUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: imageUrl,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            const Center(
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        ),
-                                        errorWidget: (context, url, error) =>
-                                            const Center(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16)),
+                                child: Container(
+                                  height: 150,
+                                  width: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: imageUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: imageUrl,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              const Center(
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          ),
+                                          errorWidget: (context, url, error) =>
+                                              const Center(
+                                            child: Icon(
+                                              Icons.broken_image_outlined,
+                                              color: Colors.grey,
+                                              size: 40,
+                                            ),
+                                          ),
+                                        )
+                                      : const Center(
                                           child: Icon(
-                                            Icons.broken_image_outlined,
+                                            Icons.image,
                                             color: Colors.grey,
                                             size: 40,
                                           ),
                                         ),
-                                      )
-                                    : const Center(
-                                        child: Icon(
-                                          Icons.image,
-                                          color: Colors.grey,
-                                          size: 40,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        category,
+                                        style: TextStyle(
+                                          color: primaryColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: primaryColor.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Text(
-                                      category,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      timeAgo,
                                       style: TextStyle(
-                                        color: primaryColor,
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey[600],
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    timeAgo,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              );
-            },
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -649,398 +747,182 @@ class _UserDashboardState extends State<UserDashboard> {
     }
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      child: Container(
-        color: Colors.white,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [primaryColor, primaryColor.withOpacity(0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomRight: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Text(
-                      userData?['firstName']?.isNotEmpty == true
-                          ? userData!['firstName'][0].toUpperCase()
-                          : 'U',
-                      style: const TextStyle(
-                        color: primaryColor,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+  Widget _buildDrawer(BuildContext context) {
+    return Consumer<UserDataProvider>(
+      builder: (context, provider, child) {
+        return Drawer(
+          child: Container(
+            color: Colors.white,
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primaryColor, primaryColor.withOpacity(0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      bottomRight: Radius.circular(24),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    userData?['firstName']?.isNotEmpty == true
-                        ? userData!['firstName']
-                        : 'User',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    userData?['email']?.isNotEmpty == true
-                        ? userData!['email']
-                        : 'email@example.com',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _buildDrawerItem(
-              icon: Icons.account_circle_outlined,
-              title: 'My Profile',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/profile');
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.photo_library_outlined,
-              title: 'My Gallery',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/listimages');
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.category_outlined,
-              title: 'Categories',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/Category');
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.video_library_outlined,
-              title: 'My Videos',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/listvedios');
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.workspace_premium_outlined,
-              title: 'My Subscription',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/usersubscription');
-              },
-            ),
-            const Divider(),
-            _buildDrawerItem(
-              icon: Icons.info_outline,
-              title: 'About',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/about');
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.help_outline,
-              title: 'Help & Support',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/support');
-              },
-            ),
-            const Divider(),
-            _buildDrawerItem(
-              icon: Icons.logout,
-              title: 'Log Out',
-              onTap: () async {
-                Navigator.pop(context);
-                final shouldLogout = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    title: const Text(
-                      'Log Out',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    content: const Text(
-                      'Are you sure you want to log out?',
-                      style: TextStyle(color: Colors.black87),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.black),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          provider.userData?['firstName']?.isNotEmpty == true
+                              ? provider.userData!['firstName'][0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            color: primaryColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          backgroundColor: primaryColor,
+                      const SizedBox(height: 8),
+                      Text(
+                        provider.userData?['firstName']?.isNotEmpty == true
+                            ? provider.userData!['firstName']
+                            : 'User',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text(
-                          'Log Out',
-                          style: TextStyle(color: Colors.white),
+                      ),
+                      Text(
+                        provider.userData?['email']?.isNotEmpty == true
+                            ? provider.userData!['email']
+                            : 'email@example.com',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
                         ),
                       ),
                     ],
                   ),
-                );
-                if (shouldLogout == true && mounted) {
-                  _signOut();
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeSection() {
-    // print('userData: $userData');
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    text:
-                        'Welcome${userData?['firstName']?.isNotEmpty == true ? ", ${userData!['firstName']}" : ""}',
-                    style: GoogleFonts.oswald(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 15),
-                Text(
-                  'Discover and organize your photos and videos',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(fontSize: 15),
-                )
+                _buildDrawerItem(
+                  icon: Icons.account_circle_outlined,
+                  title: 'My Profile',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/profile');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.photo_library_outlined,
+                  title: 'My Gallery',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/listimages');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.category_outlined,
+                  title: 'Categories',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/Category');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.video_library_outlined,
+                  title: 'My Videos',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/listvedios');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'My Subscription',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/usersubscription');
+                  },
+                ),
+                const Divider(),
+                _buildDrawerItem(
+                  icon: Icons.info_outline,
+                  title: 'About',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/about');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/support');
+                  },
+                ),
+                const Divider(),
+                _buildDrawerItem(
+                  icon: Icons.logout,
+                  title: 'Log Out',
+                  onTap: () async {
+                    final shouldLogout = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        title: const Text(
+                          'Log Out',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        content: const Text(
+                          'Are you sure you want to log out?',
+                          style: TextStyle(color: Colors.black87),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(false),
+                            child: const Text('Cancel',
+                                style: TextStyle(color: Colors.black)),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                                backgroundColor: primaryColor),
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(true),
+                            child: const Text('Log Out',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldLogout == true) {
+                      final authProvider =
+                          context.read<AuthProviders>(); // Safe now
+                      await authProvider.logout();
+
+                      if (context.mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                            '/login', (route) => false);
+                      }
+                    }
+                  },
+                ),
               ],
             ),
           ),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: primaryColor.withOpacity(0.2), width: 1),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Icon(
-                Icons.notifications_none_rounded,
-                color: primaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoriesSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Categories',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/Category');
-                },
-                child: Text(
-                  'See All',
-                  style: GoogleFonts.poppins(
-                    color: primaryColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          StreamBuilder<QuerySnapshot>(
-            stream:
-                _firestore.collection('categories').orderBy('name').snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                  height: 100,
-                  child: Center(
-                    child: CircularProgressIndicator(color: primaryColor),
-                  ),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return const SizedBox(
-                  height: 100,
-                  child: Center(child: Text('Error loading categories')),
-                );
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SizedBox(
-                  height: 100,
-                  child: Center(child: Text('No categories available')),
-                );
-              }
-
-              final categories = snapshot.data!.docs;
-
-              return SizedBox(
-                height: 120,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final categoryData =
-                        categories[index].data() as Map<String, dynamic>;
-                    final name = categoryData['name'] as String? ??
-                        'Category ${index + 1}';
-                    final imageUrl = categoryData['image_url'] as String? ?? '';
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  Mycategory(categoryFilter: name),
-                            ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 70,
-                              height: 70,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    spreadRadius: 1,
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(18),
-                                child: imageUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: imageUrl,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            Container(
-                                          color: Colors.grey[200],
-                                          child: const Center(
-                                            child: SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                color: primaryColor,
-                                                strokeWidth: 2,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        errorWidget: (context, url, error) =>
-                                            Container(
-                                          color: Colors.grey[200],
-                                          child: const Icon(
-                                            Icons.error,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                      )
-                                    : Container(
-                                        color: Colors.grey[200],
-                                        child: const Icon(
-                                          Icons.category,
-                                          color: Colors.grey,
-                                          size: 30,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: 70,
-                              child: Text(
-                                name,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w500,
-                                  color: textColor,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1050,7 +932,7 @@ class _UserDashboardState extends State<UserDashboard> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFF00A19A)),
+      leading: Icon(icon, color: primaryColor),
       title: Text(
         title,
         style: GoogleFonts.poppins(
@@ -1063,42 +945,9 @@ class _UserDashboardState extends State<UserDashboard> {
       dense: true,
     );
   }
-
-  Future<void> logout() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'isLoggedIn': false,
-          'deviceId': '',
-        });
-      }
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      print('Error during logout: $e');
-    }
-  }
-
-  Future<void> _signOut() async {
-    try {
-      await logout(); // This handles Firestore update and sign out
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error signing out: $e')),
-      );
-    }
-  }
 }
 
 class GallerySearchDelegate extends SearchDelegate {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   @override
   ThemeData appBarTheme(BuildContext context) {
     return ThemeData(
@@ -1143,15 +992,15 @@ class GallerySearchDelegate extends SearchDelegate {
 
   @override
   Widget buildResults(BuildContext context) {
-    return _buildSearchResults();
+    return _buildSearchResults(context);
   }
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return _buildSearchResults();
+    return _buildSearchResults(context);
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(BuildContext context) {
     if (query.isEmpty) {
       return Container(
         color: _UserDashboardState.secondaryColor,
@@ -1170,17 +1019,9 @@ class GallerySearchDelegate extends SearchDelegate {
 
     return Container(
       color: _UserDashboardState.secondaryColor,
-      child: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('categories').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(
-                color: _UserDashboardState.accentColor,
-              ),
-            );
-          }
-          if (snapshot.hasError) {
+      child: Consumer<CategoriesProvider>(
+        builder: (context, provider, child) {
+          if (provider.errorMessage != null) {
             return Center(
               child: Text(
                 'Error loading suggestions',
@@ -1192,7 +1033,7 @@ class GallerySearchDelegate extends SearchDelegate {
               ),
             );
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (provider.categories.isEmpty) {
             return Center(
               child: Text(
                 'No suggestions found',
@@ -1204,9 +1045,9 @@ class GallerySearchDelegate extends SearchDelegate {
               ),
             );
           }
-          // Filter categories client-side for case-insensitive matching
+
           final searchQuery = query.toLowerCase();
-          final categories = snapshot.data!.docs.where((doc) {
+          final categories = provider.categories.where((doc) {
             final name = (doc['name'] as String? ?? '').toLowerCase();
             return name.contains(searchQuery);
           }).toList();

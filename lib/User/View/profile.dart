@@ -217,9 +217,9 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isSaving = true);
     try {
       final url =
-          Uri.parse('https://api.cloudinary.com/v1_1/dfchqxsdz/image/upload');
+          Uri.parse('https://api.cloudinary.com/v1_1/dlacr6mpw/image/upload');
       final request = http.MultipartRequest('POST', url)
-        ..fields['upload_preset'] = 'TempApp'
+        ..fields['upload_preset'] = 'BrandBuilder'
         ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
 
       final response =

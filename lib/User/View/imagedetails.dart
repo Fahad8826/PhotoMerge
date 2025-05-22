@@ -197,7 +197,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
 
       bool hasActiveSubscription = isSubscribed && subscriptionExpiry != null;
       if (hasActiveSubscription &&
-          !subscriptionExpiry!.toDate().isAfter(DateTime.now())) {
+          !subscriptionExpiry.toDate().isAfter(DateTime.now())) {
         await _firestore.collection('users').doc(userId).update({
           'isSubscribed': false,
         });
@@ -418,7 +418,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
-                                width: 85,
+                                width: 82,
                                 height: 85,
                                 decoration: BoxDecoration(
                                   borderRadius:
@@ -655,7 +655,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
 
       bool hasActiveSubscription = isSubscribed && subscriptionExpiry != null;
       if (hasActiveSubscription &&
-          !subscriptionExpiry!.toDate().isAfter(DateTime.now())) {
+          !subscriptionExpiry.toDate().isAfter(DateTime.now())) {
         await _firestore.collection('users').doc(userId).update({
           'isSubscribed': false,
         });
@@ -892,7 +892,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
         automaticallyImplyLeading: false,
         leading: IconButton(
           onPressed: () {
-            Navigator.push(
+            Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ListImages(),

@@ -92,6 +92,14 @@ class _LoginPageState extends State<LoginPage> {
             });
             return;
           }
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userQuerySnapshot.docs.first.id)
+              .update({
+            'isLoggedIn': true,
+            'deviceId': currentDeviceId,
+            'lastLoginAt': FieldValue.serverTimestamp(),
+          });
         }
       }
 

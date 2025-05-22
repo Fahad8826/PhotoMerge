@@ -1,4 +1,4 @@
-package com.example.photomerge
+package com.techfifo.photomerge
 
 import io.flutter.embedding.android.FlutterActivity
 

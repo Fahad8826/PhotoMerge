@@ -162,6 +162,7 @@ class _MycategoryState extends State<Mycategory> {
       setState(() {
         _isLoading = false;
       });
+      print('$e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading images: $e')),
