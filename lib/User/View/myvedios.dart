@@ -733,15 +733,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isFullScreen = false;
   YoutubePlayerValue? _playerValue;
   String _currentQuality = 'auto';
-  List<String> _availableQualities = [
-    'auto',
-    '144p',
-    '240p',
-    '360p',
-    '480p',
-    '720p',
-    '1080p'
-  ];
 
   @override
   void initState() {
@@ -761,7 +752,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     // Update quality options based on available formats
     // Note: YouTube API limitations mean we can only toggle between HD and standard quality
-    _availableQualities = ['auto', '360p', '720p'];
   }
 
   void _onPlayerValueChange() {
@@ -870,16 +860,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               Expanded(
                 child: ListView.builder(
                   shrinkWrap: true,
-                  itemCount: _availableQualities.length,
+                  // itemCount: _availableQualities.length,
                   itemBuilder: (context, index) {
-                    final quality = _availableQualities[index];
-                    return ListTile(
-                      title: Text(quality),
-                      trailing: _currentQuality == quality
-                          ? Icon(Icons.check, color: Color(0xFF4CAF50))
-                          : null,
-                      onTap: () => _changeQuality(quality),
-                    );
+                    // final quality = _availableQualities[index];
+                    // return ListTile(
+                    //   title: Text(quality),
+                    //   trailing: _currentQuality == quality
+                    //       ? Icon(Icons.check, color: Color(0xFF4CAF50))
+                    //       : null,
+                    //   onTap: () => _changeQuality(quality),
+                    // );
                   },
                 ),
               ),
@@ -951,10 +941,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               IconButton(
                   onPressed: _skipBackward,
                   icon: Icon(Icons.forward_10, color: Colors.white)),
-              IconButton(
-                icon: const Icon(Icons.settings, color: Colors.white),
-                onPressed: _showQualitySelector,
-              ),
+              // IconButton(
+              //   icon: const Icon(Icons.settings, color: Colors.white),
+              //   onPressed: _showQualitySelector,
+              // ),
               FullScreenButton(),
             ],
           ),
