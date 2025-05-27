@@ -1,3 +1,4 @@
+
 name: photomerge
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
@@ -5,7 +6,7 @@ description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.6.1
@@ -42,14 +43,17 @@ dependencies:
   google_fonts: ^6.2.1
   youtube_player_flutter: ^9.1.1
   flutter_staggered_grid_view: ^0.7.0
-  lottie: ^3.3.1
+  lottie: ^2.6.0
   flutter_staggered_animations: ^1.1.1
   pdf: ^3.11.3
   open_file: ^3.5.10
   flutter_secure_storage: ^9.2.4
   animate_do: ^4.2.0
+  audio_service: ^0.18.18
+  audio_session: ^0.2.2
+  youtube_player_iframe: ^5.2.1
+  no_screenshot: ^0.3.1
   
-
 
 
 
@@ -61,7 +65,7 @@ dev_dependencies:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/logo/BBnew.png"
+  image_path: "assets/logo/bb-logo.png"
 
 
 flutter_lints: ^5.0.0
@@ -84,7 +88,8 @@ flutter:
   - assets/animations/reg.json
   - assets/animations/image_generating.json
   - assets/images/
-  - assets/logo/BBnew.png
+  - assets/animations/loading.json
+  - assets/logo/bb-logo.png
 
     
 
