@@ -754,7 +754,7 @@ class _SignupPageState extends State<SignupPage> {
 
       http.StreamedResponse response = await request.send();
 
-      if (response.statusCode == 200) {           
+      if (response.statusCode == 200) {
         String responseBody = await response.stream.bytesToString();
         print('OTP sent successfully: $responseBody');
         return true;
@@ -763,7 +763,7 @@ class _SignupPageState extends State<SignupPage> {
         return false;
       }
     } catch (e) {
-      print('Error sending OTP: $e');          
+      print('Error sending OTP: $e');
       return false;
     }
   }
@@ -921,6 +921,7 @@ class _SignupPageState extends State<SignupPage> {
     final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
     final phone = _phoneController.text.trim();
+    final device_id = _getDeviceId();
 
     try {
       setState(() {
@@ -950,7 +951,8 @@ class _SignupPageState extends State<SignupPage> {
         'subscriptionExpiry': null,
         'createdAt': FieldValue.serverTimestamp(),
         'emailVerified': true, // Set to true since OTP is verified
-        'profile_status': false,
+        'profile_status': true,
+        'deviceId': device_id
       });
 
       // Navigate to profile page

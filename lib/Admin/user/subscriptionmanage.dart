@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart'; // For date formatting
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:awesome_notifications/awesome_notifications.dart'; // For notifications
 import 'dart:async'; // For timer functionality
 import 'package:permission_handler/permission_handler.dart';
@@ -18,7 +17,7 @@ class AdminSubscriptionPage extends StatefulWidget {
 
 class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   String? _adminId;
 
   // Filter options
@@ -126,70 +125,136 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
     }
   }
 
+  // Future<void> _setupSubscriptionAlert(String userId, String email) async {
+  //   // Cancel any existing listener for this user
+  //   if (_subscriptionListeners.containsKey(userId)) {
+  //     await _subscriptionListeners[userId]?.cancel();
+  //   }
+
+  //   // Create a new listener
+  //   final subscription = _firestore
+  //       .collection('users')
+  //       .doc(userId)
+  //       .snapshots()
+  //       .listen((userDoc) async {
+  //     if (!userDoc.exists) return;
+
+  //     final userData = userDoc.data()!;
+  //     final bool isSubscribed = userData['isSubscribed'] ?? false;
+  //     final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
+
+  //     if (isSubscribed && subscriptionExpiry != null) {
+  //       final expiryDate = subscriptionExpiry.toDate();
+  //       final now = DateTime.now();
+
+  //       // Calculate days left
+  //       final difference = expiryDate.difference(now).inDays;
+
+  //       // Check if subscription is expiring in 7 days or less
+  //       if (difference <= 7 && difference >= 0) {
+  //         // Send notification to user
+  //         await _sendExpiryReminderToUser(userId, email, difference,
+  //             userData['subscriptionPlan'] ?? 'your plan');
+
+  //         // Send notification to admin
+  //         await _showNotification(
+  //           title: 'Subscription Expiring Soon',
+  //           body: 'User $email subscription expires in $difference days',
+  //         );
+  //       }
+  //       // Check if subscription just expired
+  //       else if (difference < 0 && difference > -2) {
+  //         // Only alert on first day of expiry
+  //         // Send expiry notification to user
+  //         await _sendExpiryNotificationToUser(
+  //             userId, email, userData['subscriptionPlan'] ?? 'your plan');
+
+  //         // Update subscription status if it just expired
+  //         if (isSubscribed) {
+  //           await _firestore.collection('users').doc(userId).update({
+  //             'isSubscribed': false,
+  //             'lastSubscriptionUpdate': Timestamp.now(),
+  //           });
+
+  //           // Notify admin
+  //           await _showNotification(
+  //             title: 'Subscription Expired',
+  //             body: 'User $email subscription has expired',
+  //           );
+  //         }
+  //       }
+  //     }
+  //   });
+
+  //   // Store the subscription listener
+  //   _subscriptionListeners[userId] = subscription;
+  // }
+
   Future<void> _setupSubscriptionAlert(String userId, String email) async {
-    // Cancel any existing listener for this user
-    if (_subscriptionListeners.containsKey(userId)) {
-      await _subscriptionListeners[userId]?.cancel();
-    }
-
-    // Create a new listener
-    final subscription = _firestore
-        .collection('users')
-        .doc(userId)
-        .snapshots()
-        .listen((userDoc) async {
-      if (!userDoc.exists) return;
-
-      final userData = userDoc.data()!;
-      final bool isSubscribed = userData['isSubscribed'] ?? false;
-      final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
-
-      if (isSubscribed && subscriptionExpiry != null) {
-        final expiryDate = subscriptionExpiry.toDate();
-        final now = DateTime.now();
-
-        // Calculate days left
-        final difference = expiryDate.difference(now).inDays;
-
-        // Check if subscription is expiring in 7 days or less
-        if (difference <= 7 && difference >= 0) {
-          // Send notification to user
-          await _sendExpiryReminderToUser(userId, email, difference,
-              userData['subscriptionPlan'] ?? 'your plan');
-
-          // Send notification to admin
-          await _showNotification(
-            title: 'Subscription Expiring Soon',
-            body: 'User $email subscription expires in $difference days',
-          );
-        }
-        // Check if subscription just expired
-        else if (difference < 0 && difference > -2) {
-          // Only alert on first day of expiry
-          // Send expiry notification to user
-          await _sendExpiryNotificationToUser(
-              userId, email, userData['subscriptionPlan'] ?? 'your plan');
-
-          // Update subscription status if it just expired
-          if (isSubscribed) {
-            await _firestore.collection('users').doc(userId).update({
-              'isSubscribed': false,
-              'lastSubscriptionUpdate': Timestamp.now(),
-            });
-
-            // Notify admin
-            await _showNotification(
-              title: 'Subscription Expired',
-              body: 'User $email subscription has expired',
-            );
-          }
-        }
-      }
-    });
-
-    // Store the subscription listener
-    _subscriptionListeners[userId] = subscription;
+  // Cancel any existing listener for this user
+  if (_subscriptionListeners.containsKey(userId)) {
+    await _subscriptionListeners[userId]?.cancel();
   }
+
+  // Create a new listener
+  final subscription = _firestore
+      .collection('users')
+      .doc(userId)
+      .snapshots()
+      .listen((userDoc) async {
+    if (!userDoc.exists) return;
+
+    final userData = userDoc.data()!;
+    final bool isSubscribed = userData['isSubscribed'] ?? false;
+    final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
+
+    if (isSubscribed && subscriptionExpiry != null) {
+      final expiryDate = subscriptionExpiry.toDate();
+      final now = DateTime.now();
+
+      // Calculate days left
+      final daysLeft = expiryDate.difference(now).inDays;
+
+      // Send reminders at 10, 5, and 3 days before expiry
+      if ([10, 5, 3].contains(daysLeft)) {
+        await _sendExpiryReminderToUser(
+          userId,
+          email,
+          daysLeft,
+          userData['subscriptionPlan'] ?? 'your plan',
+        );
+
+        await _showNotification(
+          title: 'Subscription Reminder',
+          body: 'User $email subscription expires in $daysLeft days',
+        );
+      }
+
+      // Send expiry notice on the day it expires
+      if (daysLeft == 0) {
+        await _sendExpiryNotificationToUser(
+          userId,
+          email,
+          userData['subscriptionPlan'] ?? 'your plan',
+        );
+
+        await _firestore.collection('users').doc(userId).update({
+          'isSubscribed': false,
+          'lastSubscriptionUpdate': Timestamp.now(),
+        });
+
+        await _showNotification(
+          title: 'Subscription Expired',
+          body: 'User $email subscription has expired',
+        );
+      }
+    }
+  });
+
+  // Store the subscription listener
+  _subscriptionListeners[userId] = subscription;
+}
+
 
   Future<void> _sendExpiryReminderToUser(
       String userId, String email, int daysLeft, String planName) async {
@@ -241,7 +306,6 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
       final sdkInt = androidInfo.version.sdkInt;
 
       if (sdkInt >= 33) {
-        // Request POST_NOTIFICATIONS permission for Android 13+
         final status = await Permission.notification.request();
         if (!status.isGranted) {
           if (mounted) {
@@ -271,315 +335,6 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
       ),
     );
   }
-
-  // void _approveSubscription(BuildContext context, String userId, String email) {
-  //   String selectedCategory = _categories.isNotEmpty ? _categories[0] : '';
-
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) => StatefulBuilder(
-  //       builder: (context, setState) => Dialog(
-  //         shape:
-  //             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-  //         elevation: 5,
-  //         child: Container(
-  //           constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-  //           padding: const EdgeInsets.all(20),
-  //           child: Column(
-  //             mainAxisSize: MainAxisSize.min,
-  //             crossAxisAlignment: CrossAxisAlignment.stretch,
-  //             children: [
-  //               // Header with gradient background
-  //               Container(
-  //                 padding: const EdgeInsets.symmetric(vertical: 12),
-  //                 decoration: BoxDecoration(
-  //                   borderRadius: const BorderRadius.only(
-  //                     topLeft: Radius.circular(16),
-  //                     topRight: Radius.circular(16),
-  //                   ),
-  //                   gradient: LinearGradient(
-  //                     colors: [Color(0xFF00B6B0), Color(0xFFE0F7F6)],
-  //                     begin: Alignment.topLeft,
-  //                     end: Alignment.bottomRight,
-  //                   ),
-  //                 ),
-  //                 child: Row(
-  //                   mainAxisAlignment: MainAxisAlignment.center,
-  //                   children: [
-  //                     const Icon(Icons.verified_user,
-  //                         color: Colors.white, size: 28),
-  //                     const SizedBox(width: 12),
-  //                     Text(
-  //                       'Approve Subscription',
-  //                       style:
-  //                           Theme.of(context).textTheme.headlineSmall?.copyWith(
-  //                                 color: Colors.white,
-  //                                 fontWeight: FontWeight.bold,
-  //                                 fontSize: 20,
-  //                               ),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 16),
-
-  //               // User info card
-  //               Card(
-  //                 elevation: 2,
-  //                 shape: RoundedRectangleBorder(
-  //                     borderRadius: BorderRadius.circular(12)),
-  //                 child: Padding(
-  //                   padding: const EdgeInsets.all(16),
-  //                   child: Row(
-  //                     children: [
-  //                       CircleAvatar(
-  //                         backgroundColor: Color(0xFFE0F7F6),
-  //                         child: Icon(Icons.person, color: Color(0xFF00B6B0)),
-  //                       ),
-  //                       const SizedBox(width: 16),
-  //                       Expanded(
-  //                         child: Column(
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           children: [
-  //                             Text(
-  //                               'Subscriber',
-  //                               style: TextStyle(
-  //                                 fontSize: 12,
-  //                                 color: Colors.grey[600],
-  //                               ),
-  //                             ),
-  //                             Text(
-  //                               email,
-  //                               style: const TextStyle(
-  //                                 fontSize: 16,
-  //                                 fontWeight: FontWeight.w500,
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 16),
-
-  //               // Category selector if needed
-  //               // You could add a category dropdown here
-
-  //               const Text(
-  //                 'Select Plan:',
-  //                 style: TextStyle(
-  //                   fontSize: 16,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //               const SizedBox(height: 8),
-
-  //               // Plans list
-  //               Expanded(
-  //                 child: _categoryPlans[selectedCategory]?.isEmpty ?? true
-  //                     ? Center(
-  //                         child: Text(
-  //                           'No plans available for this category',
-  //                           style: TextStyle(color: Colors.grey[600]),
-  //                         ),
-  //                       )
-  //                     : ListView.builder(
-  //                         itemCount:
-  //                             _categoryPlans[selectedCategory]?.length ?? 0,
-  //                         itemBuilder: (context, index) {
-  //                           final plan =
-  //                               _categoryPlans[selectedCategory]![index];
-  //                           final durationText = plan.duration.inDays >= 365
-  //                               ? '${plan.duration.inDays ~/ 365} year${plan.duration.inDays >= 730 ? 's' : ''}'
-  //                               : '${plan.duration.inDays} days';
-
-  //                           final isRecommended = index ==
-  //                               1; // Example: Mark the middle option as recommended
-
-  //                           return Card(
-  //                             elevation: 2,
-  //                             margin: const EdgeInsets.symmetric(vertical: 8),
-  //                             shape: RoundedRectangleBorder(
-  //                               borderRadius: BorderRadius.circular(12),
-  //                               side: isRecommended
-  //                                   ? BorderSide(
-  //                                       color: Color(0xFF00B6B0), width: 2)
-  //                                   : BorderSide.none,
-  //                             ),
-  //                             child: Stack(
-  //                               children: [
-  //                                 if (isRecommended)
-  //                                   Positioned(
-  //                                     top: 0,
-  //                                     right: 0,
-  //                                     child: Container(
-  //                                       padding: const EdgeInsets.symmetric(
-  //                                           horizontal: 8, vertical: 4),
-  //                                       decoration: BoxDecoration(
-  //                                         color: Color(0xFF00B6B0),
-  //                                         borderRadius: const BorderRadius.only(
-  //                                           topRight: Radius.circular(12),
-  //                                           bottomLeft: Radius.circular(12),
-  //                                         ),
-  //                                       ),
-  //                                       child: const Text(
-  //                                         'RECOMMENDED',
-  //                                         style: TextStyle(
-  //                                           color: Colors.white,
-  //                                           fontSize: 10,
-  //                                           fontWeight: FontWeight.bold,
-  //                                         ),
-  //                                       ),
-  //                                     ),
-  //                                   ),
-  //                                 Padding(
-  //                                   padding: const EdgeInsets.all(16),
-  //                                   child: Column(
-  //                                     crossAxisAlignment:
-  //                                         CrossAxisAlignment.start,
-  //                                     children: [
-  //                                       Row(
-  //                                         children: [
-  //                                           Expanded(
-  //                                             child: Column(
-  //                                               crossAxisAlignment:
-  //                                                   CrossAxisAlignment.start,
-  //                                               children: [
-  //                                                 Text(
-  //                                                   plan.name,
-  //                                                   style: const TextStyle(
-  //                                                     fontSize: 18,
-  //                                                     fontWeight:
-  //                                                         FontWeight.bold,
-  //                                                   ),
-  //                                                 ),
-  //                                                 const SizedBox(height: 4),
-  //                                                 Row(
-  //                                                   children: [
-  //                                                     Text(
-  //                                                       '₹${plan.price}',
-  //                                                       style: TextStyle(
-  //                                                         fontSize: 20,
-  //                                                         color:
-  //                                                             Color(0xFF00B6B0),
-  //                                                         fontWeight:
-  //                                                             FontWeight.bold,
-  //                                                       ),
-  //                                                     ),
-  //                                                     const SizedBox(width: 4),
-  //                                                     Text(
-  //                                                       '/ $durationText',
-  //                                                       style: TextStyle(
-  //                                                         color:
-  //                                                             Colors.grey[600],
-  //                                                         fontSize: 14,
-  //                                                       ),
-  //                                                     ),
-  //                                                   ],
-  //                                                 ),
-  //                                               ],
-  //                                             ),
-  //                                           ),
-  //                                           ElevatedButton(
-  //                                             style: ElevatedButton.styleFrom(
-  //                                               backgroundColor:
-  //                                                   Color(0xFF00B6B0),
-  //                                               foregroundColor: Colors.white,
-  //                                               padding:
-  //                                                   const EdgeInsets.symmetric(
-  //                                                       horizontal: 20,
-  //                                                       vertical: 12),
-  //                                               shape: RoundedRectangleBorder(
-  //                                                 borderRadius:
-  //                                                     BorderRadius.circular(8),
-  //                                               ),
-  //                                             ),
-  //                                             onPressed: () =>
-  //                                                 _updateSubscription(
-  //                                                     userId,
-  //                                                     email,
-  //                                                     selectedCategory,
-  //                                                     plan),
-  //                                             child: const Text(
-  //                                               'Select',
-  //                                               style: TextStyle(
-  //                                                   fontWeight:
-  //                                                       FontWeight.bold),
-  //                                             ),
-  //                                           ),
-  //                                         ],
-  //                                       ),
-  //                                       const SizedBox(height: 12),
-  //                                       const Divider(),
-  //                                       const SizedBox(height: 8),
-  //                                       const Text(
-  //                                         'Features:',
-  //                                         style: TextStyle(
-  //                                           fontWeight: FontWeight.w500,
-  //                                         ),
-  //                                       ),
-  //                                       const SizedBox(height: 8),
-  //                                       ...plan.features.map((feature) =>
-  //                                           Padding(
-  //                                             padding: const EdgeInsets.only(
-  //                                                 bottom: 6),
-  //                                             child: Row(
-  //                                               crossAxisAlignment:
-  //                                                   CrossAxisAlignment.start,
-  //                                               children: [
-  //                                                 Icon(
-  //                                                   Icons.check_circle,
-  //                                                   color: Color(0xFF00B6B0),
-  //                                                   size: 18,
-  //                                                 ),
-  //                                                 const SizedBox(width: 8),
-  //                                                 Expanded(
-  //                                                   child: Text(
-  //                                                     feature,
-  //                                                     style: const TextStyle(
-  //                                                         fontSize: 14),
-  //                                                   ),
-  //                                                 ),
-  //                                               ],
-  //                                             ),
-  //                                           )),
-  //                                     ],
-  //                                   ),
-  //                                 ),
-  //                               ],
-  //                             ),
-  //                           );
-  //                         },
-  //                       ),
-  //               ),
-
-  //               // Action buttons
-  //               const SizedBox(height: 16),
-  //               Row(
-  //                 mainAxisAlignment: MainAxisAlignment.end,
-  //                 children: [
-  //                   TextButton(
-  //                     style: TextButton.styleFrom(
-  //                       padding: const EdgeInsets.symmetric(
-  //                           horizontal: 20, vertical: 12),
-  //                     ),
-  //                     onPressed: () => Navigator.pop(context),
-  //                     child: Text(
-  //                       'Cancel',
-  //                       style: TextStyle(color: Color(0xFF00B6B0)),
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 
   void _approveSubscription(BuildContext context, String userId, String email) {
     String selectedCategory = _categories.isNotEmpty ? _categories[0] : '';

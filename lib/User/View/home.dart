@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:photomerge/User/View/categorey.dart';
 import 'package:photomerge/User/View/imagedetails.dart';
+import 'package:photomerge/User/View/listnotification.dart';
 import 'package:photomerge/User/View/provider/authprovider.dart';
 import 'package:photomerge/User/View/provider/carousalprovider.dart';
 import 'package:photomerge/User/View/provider/categoryprovider.dart';
@@ -38,22 +39,34 @@ class _UserDashboardState extends State<UserDashboard> {
   void initState() {
     super.initState();
 
-    if (userId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Delay calls until after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadNotifications();
+
+      if (userId != null) {
         context.read<UserDataProvider>().fetchUserData(userId);
         context.read<CarouselProvider>().fetchCarouselImages();
         context.read<CategoriesProvider>().fetchCategories();
         context.read<RecentImagesProvider>().fetchRecentImages();
         _loadUserProfileImage();
-      });
-    }
+      }
+    });
 
+    // Set system UI style
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+  }
+
+// Move this outside initState
+  void _loadNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await _checkAndShowNotifications(context, user.uid);
+    }
   }
 
   @override
@@ -89,6 +102,43 @@ class _UserDashboardState extends State<UserDashboard> {
       _showSnackBar('Error loading profile picture: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _checkAndShowNotifications(
+      BuildContext context, String userId) async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final title = data['title'] ?? 'Notification';
+      final message = data['message'] ?? '';
+
+      // Show dialog
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  // Mark as read
+                  await doc.reference.update({'read': true});
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -158,7 +208,7 @@ class _UserDashboardState extends State<UserDashboard> {
           ),
           iconTheme: IconThemeData(color: primaryColor),
         ),
-       cardTheme: CardThemeData(
+        cardTheme: CardThemeData(
           color: cardColor,
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -440,8 +490,19 @@ class _UserDashboardState extends State<UserDashboard> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    Icons.notifications_none_rounded,
+                  // child: Icon(
+                  //   Icons.notifications_none_rounded,
+                  //   color: primaryColor,
+                  // ),
+                  child: IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NotificationsPage(),
+                          ));
+                    },
+                    icon: Icon(Icons.notifications_none_rounded),
                     color: primaryColor,
                   ),
                 ),
