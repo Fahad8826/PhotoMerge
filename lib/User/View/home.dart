@@ -481,31 +481,13 @@ class _UserDashboardState extends State<UserDashboard> {
                   ],
                 ),
               ),
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                      color: primaryColor.withOpacity(0.2), width: 1),
+              IconButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => NotificationsPage()),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  // child: Icon(
-                  //   Icons.notifications_none_rounded,
-                  //   color: primaryColor,
-                  // ),
-                  child: IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => NotificationsPage(),
-                          ));
-                    },
-                    icon: Icon(Icons.notifications_none_rounded),
-                    color: primaryColor,
-                  ),
-                ),
+                icon:
+                    Icon(Icons.notifications_none_rounded, color: primaryColor),
               ),
             ],
           ),

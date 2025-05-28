@@ -191,70 +191,69 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
   // }
 
   Future<void> _setupSubscriptionAlert(String userId, String email) async {
-  // Cancel any existing listener for this user
-  if (_subscriptionListeners.containsKey(userId)) {
-    await _subscriptionListeners[userId]?.cancel();
-  }
-
-  // Create a new listener
-  final subscription = _firestore
-      .collection('users')
-      .doc(userId)
-      .snapshots()
-      .listen((userDoc) async {
-    if (!userDoc.exists) return;
-
-    final userData = userDoc.data()!;
-    final bool isSubscribed = userData['isSubscribed'] ?? false;
-    final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
-
-    if (isSubscribed && subscriptionExpiry != null) {
-      final expiryDate = subscriptionExpiry.toDate();
-      final now = DateTime.now();
-
-      // Calculate days left
-      final daysLeft = expiryDate.difference(now).inDays;
-
-      // Send reminders at 10, 5, and 3 days before expiry
-      if ([10, 5, 3].contains(daysLeft)) {
-        await _sendExpiryReminderToUser(
-          userId,
-          email,
-          daysLeft,
-          userData['subscriptionPlan'] ?? 'your plan',
-        );
-
-        await _showNotification(
-          title: 'Subscription Reminder',
-          body: 'User $email subscription expires in $daysLeft days',
-        );
-      }
-
-      // Send expiry notice on the day it expires
-      if (daysLeft == 0) {
-        await _sendExpiryNotificationToUser(
-          userId,
-          email,
-          userData['subscriptionPlan'] ?? 'your plan',
-        );
-
-        await _firestore.collection('users').doc(userId).update({
-          'isSubscribed': false,
-          'lastSubscriptionUpdate': Timestamp.now(),
-        });
-
-        await _showNotification(
-          title: 'Subscription Expired',
-          body: 'User $email subscription has expired',
-        );
-      }
+    // Cancel any existing listener for this user
+    if (_subscriptionListeners.containsKey(userId)) {
+      await _subscriptionListeners[userId]?.cancel();
     }
-  });
 
-  // Store the subscription listener
-  _subscriptionListeners[userId] = subscription;
-}
+    // Create a new listener
+    final subscription = _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .listen((userDoc) async {
+      if (!userDoc.exists) return;
 
+      final userData = userDoc.data()!;
+      final bool isSubscribed = userData['isSubscribed'] ?? false;
+      final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
+
+      if (isSubscribed && subscriptionExpiry != null) {
+        final expiryDate = subscriptionExpiry.toDate();
+        final now = DateTime.now();
+
+        // Calculate days left
+        final daysLeft = expiryDate.difference(now).inDays;
+
+        // Send reminders at 10, 5, and 3 days before expiry
+        if ([10, 5, 3].contains(daysLeft)) {
+          await _sendExpiryReminderToUser(
+            userId,
+            email,
+            daysLeft,
+            userData['subscriptionPlan'] ?? 'your plan',
+          );
+
+          await _showNotification(
+            title: 'Subscription Reminder',
+            body: 'User $email subscription expires in $daysLeft days',
+          );
+        }
+
+        // Send expiry notice on the day it expires
+        if (daysLeft == 0) {
+          await _sendExpiryNotificationToUser(
+            userId,
+            email,
+            userData['subscriptionPlan'] ?? 'your plan',
+          );
+
+          await _firestore.collection('users').doc(userId).update({
+            'isSubscribed': false,
+            'lastSubscriptionUpdate': Timestamp.now(),
+          });
+
+          await _showNotification(
+            title: 'Subscription Expired',
+            body: 'User $email subscription has expired',
+          );
+        }
+      }
+    });
+
+    // Store the subscription listener
+    _subscriptionListeners[userId] = subscription;
+  }
 
   Future<void> _sendExpiryReminderToUser(
       String userId, String email, int daysLeft, String planName) async {
@@ -1067,59 +1066,80 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
                                   Text(
                                       'Expiry: ${DateFormat('dd MMM yyyy').format(subscriptionExpiry.toDate())}'),
                                 const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: () => _approveSubscription(
-                                          context, userId, email),
-                                      icon: const Icon(
-                                        Icons.add,
-                                        color: Colors.white,
-                                      ),
-                                      label: const Text(
-                                        'New Plan',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    ),
-                                    if (isSubscribed)
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: [
                                       ElevatedButton.icon(
-                                        onPressed: () => _extendSubscription(
-                                            context,
-                                            userId,
-                                            email,
-                                            subscriptionExpiry),
-                                        icon: const Icon(
-                                          Icons.extension,
-                                          color: Colors.white,
-                                        ),
-                                        label: const Text('Extend',
-                                            style:
-                                                TextStyle(color: Colors.white)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue,
-                                        ),
-                                      ),
-                                    if (isSubscribed)
-                                      ElevatedButton.icon(
-                                        onPressed: () => _revokeSubscription(
+                                        onPressed: () => _approveSubscription(
                                             context, userId, email),
                                         icon: const Icon(
-                                          Icons.remove_circle,
+                                          Icons.add,
                                           color: Colors.white,
                                         ),
-                                        label: const Text('Revoke',
-                                            style:
-                                                TextStyle(color: Colors.white)),
+                                        label: const Text(
+                                          'New Plan',
+                                          style: TextStyle(color: Colors.white),
+                                        ),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red,
+                                          backgroundColor: Colors.green,
+                                          minimumSize: const Size(120,
+                                              40), // Constrain button width
                                         ),
                                       ),
-                                  ],
+                                      const SizedBox(
+                                          width:
+                                              8), // Add spacing between buttons
+                                      if (isSubscribed)
+                                        ElevatedButton.icon(
+                                          onPressed: () => _extendSubscription(
+                                              context,
+                                              userId,
+                                              email,
+                                              subscriptionExpiry),
+                                          icon: const Icon(
+                                            Icons.extension,
+                                            color: Colors.white,
+                                          ),
+                                          label: const Text(
+                                            'Extend',
+                                            style:
+                                                TextStyle(color: Colors.white),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.blue,
+                                            minimumSize: const Size(120,
+                                                40), // Constrain button width
+                                          ),
+                                        ),
+                                      const SizedBox(
+                                          width:
+                                              8), // Add spacing between buttons
+                                      if (isSubscribed)
+                                        ElevatedButton.icon(
+                                          onPressed: () => _revokeSubscription(
+                                              context, userId, email),
+                                          icon: const Icon(
+                                            Icons.remove_circle,
+                                            color: Colors.white,
+                                          ),
+                                          label: const Text(
+                                            'Revoke',
+                                            style:
+                                                TextStyle(color: Colors.white),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            minimumSize: const Size(120,
+                                                40), // Constrain button width
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
