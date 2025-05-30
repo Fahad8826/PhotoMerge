@@ -22,6 +22,7 @@ import 'package:photomerge/User/View/profile.dart';
 import 'package:photomerge/User/View/provider/authprovider.dart';
 import 'package:photomerge/User/View/provider/carousalprovider.dart';
 import 'package:photomerge/User/View/provider/categoryprovider.dart';
+import 'package:photomerge/User/View/provider/listimageprovider.dart';
 import 'package:photomerge/User/View/provider/recentimage_provider.dart';
 import 'package:photomerge/User/View/provider/userprovider.dart';
 import 'package:photomerge/User/View/support.dart';
@@ -70,6 +71,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CategoriesProvider()),
         ChangeNotifierProvider(create: (_) => RecentImagesProvider()),
         ChangeNotifierProvider(create: (_) => CarouselProvider()),
+        ChangeNotifierProvider(create: (_) => ImageProviderService()),
 
         // Add more providers here as needed
       ],
