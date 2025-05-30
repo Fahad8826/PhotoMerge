@@ -863,9 +863,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: const BorderRadius.only(
-                      bottomRight: Radius.circular(24),
-                    ),
+                    borderRadius: const BorderRadius.only(),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -878,7 +876,7 @@ class _UserDashboardState extends State<UserDashboard> {
                                 ? NetworkImage(_userImageUrl!)
                                 : null,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 18),
                       Text(
                         provider.userData?['firstName']?.isNotEmpty == true
                             ? provider.userData!['firstName']
