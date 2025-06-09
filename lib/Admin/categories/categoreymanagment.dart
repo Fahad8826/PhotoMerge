@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -177,7 +176,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
-                Text('Subcategory added successfully'),
+                Text('Sub category added successfully'),
               ],
             ),
             backgroundColor: Colors.green.shade700,
@@ -464,7 +463,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                         TextFormField(
                           controller: _subcategoryController,
                           decoration: InputDecoration(
-                            labelText: 'Subcategory Name',
+                            labelText: 'Sub category Name',
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8)),
                             focusedBorder: OutlineInputBorder(
@@ -483,7 +482,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                               : null,
                         ),
                         const SizedBox(height: 12),
-                        _buildButton('Add Subcategory', _addSubcategory,
+                        _buildButton('Add Sub category', _addSubcategory,
                             icon: Icons.add),
                       ],
                     ),

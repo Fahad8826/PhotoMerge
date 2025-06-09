@@ -14,6 +14,7 @@ import 'package:photomerge/User/View/provider/categoryprovider.dart';
 import 'package:photomerge/User/View/provider/recentimage_provider.dart';
 import 'package:photomerge/User/View/provider/userprovider.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -942,10 +943,18 @@ class _UserDashboardState extends State<UserDashboard> {
                 const Divider(),
                 _buildDrawerItem(
                   icon: Icons.info_outline,
-                  title: 'About',
-                  onTap: () {
+                  title: 'Privacy Policy',
+                  onTap: () async {
+                    const url =
+                        'https://www.freeprivacypolicy.com/live/9afd8086-663d-40aa-b57c-3306650df483';
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/about');
+                    if (await canLaunchUrl(Uri.parse(url))) {
+                      await launchUrl(Uri.parse(url),
+                          mode: LaunchMode.externalApplication);
+                    } else {
+                      // Optionally handle error
+                      throw 'Could not launch $url';
+                    }
                   },
                 ),
                 _buildDrawerItem(
