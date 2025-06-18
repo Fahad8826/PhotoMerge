@@ -89,16 +89,9 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
         // For each category, define subscription plans
         _categoryPlans[categoryName] = [
           SubscriptionPlan(
-            name: 'Standard Plan',
-            duration: const Duration(days: 30),
-            price: 300,
-            features: ['Access to all fetaures for 1 month'],
-            categorySpecific: true,
-          ),
-          SubscriptionPlan(
             name: 'Premium Plan',
             duration: const Duration(days: 365),
-            price: 1000,
+            price: 2000,
             features: ['Access to all fetaures for 1 year'],
             categorySpecific: true,
           ),
@@ -125,70 +118,7 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
     }
   }
 
-  // Future<void> _setupSubscriptionAlert(String userId, String email) async {
-  //   // Cancel any existing listener for this user
-  //   if (_subscriptionListeners.containsKey(userId)) {
-  //     await _subscriptionListeners[userId]?.cancel();
-  //   }
 
-  //   // Create a new listener
-  //   final subscription = _firestore
-  //       .collection('users')
-  //       .doc(userId)
-  //       .snapshots()
-  //       .listen((userDoc) async {
-  //     if (!userDoc.exists) return;
-
-  //     final userData = userDoc.data()!;
-  //     final bool isSubscribed = userData['isSubscribed'] ?? false;
-  //     final Timestamp? subscriptionExpiry = userData['subscriptionExpiry'];
-
-  //     if (isSubscribed && subscriptionExpiry != null) {
-  //       final expiryDate = subscriptionExpiry.toDate();
-  //       final now = DateTime.now();
-
-  //       // Calculate days left
-  //       final difference = expiryDate.difference(now).inDays;
-
-  //       // Check if subscription is expiring in 7 days or less
-  //       if (difference <= 7 && difference >= 0) {
-  //         // Send notification to user
-  //         await _sendExpiryReminderToUser(userId, email, difference,
-  //             userData['subscriptionPlan'] ?? 'your plan');
-
-  //         // Send notification to admin
-  //         await _showNotification(
-  //           title: 'Subscription Expiring Soon',
-  //           body: 'User $email subscription expires in $difference days',
-  //         );
-  //       }
-  //       // Check if subscription just expired
-  //       else if (difference < 0 && difference > -2) {
-  //         // Only alert on first day of expiry
-  //         // Send expiry notification to user
-  //         await _sendExpiryNotificationToUser(
-  //             userId, email, userData['subscriptionPlan'] ?? 'your plan');
-
-  //         // Update subscription status if it just expired
-  //         if (isSubscribed) {
-  //           await _firestore.collection('users').doc(userId).update({
-  //             'isSubscribed': false,
-  //             'lastSubscriptionUpdate': Timestamp.now(),
-  //           });
-
-  //           // Notify admin
-  //           await _showNotification(
-  //             title: 'Subscription Expired',
-  //             body: 'User $email subscription has expired',
-  //           );
-  //         }
-  //       }
-  //     }
-  //   });
-
-  //   // Store the subscription listener
-  //   _subscriptionListeners[userId] = subscription;
-  // }
 
   Future<void> _setupSubscriptionAlert(String userId, String email) async {
     // Cancel any existing listener for this user

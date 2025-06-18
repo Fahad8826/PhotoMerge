@@ -176,8 +176,7 @@ class _UserSubscriptionPageState extends State<UserSubscriptionPage> {
             children: [
               const Text('Select a plan to continue downloading images.'),
               const SizedBox(height: 12),
-              _buildPlanOption('Standard Plan', 300, 'month'),
-              _buildPlanOption('Premium Plan', 1000, 'year'),
+              _buildPlanOption('Premium Plan', 2000, 'year'),
             ],
           ),
         ),
