@@ -19,6 +19,10 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String? _adminId;
+  // ...existing code...
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+// ...existing code...
 
   // Filter options
   String _filterOption = 'All';
@@ -117,8 +121,6 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
       }
     }
   }
-
-
 
   Future<void> _setupSubscriptionAlert(String userId, String email) async {
     // Cancel any existing listener for this user
@@ -856,56 +858,193 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Manage Subscriptions'),
-          backgroundColor: Color(0xFF00B6B0),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF00B6B0),
+                Color(0xFF00B6B0).withOpacity(0.8),
+              ],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading subscriptions...',
+                  style: GoogleFonts.oswald(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text(
-          'Manage Subscriptions',
-          style: GoogleFonts.oswald(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Color(0xFF00B6B0),
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: Colors.white,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.refresh,
-              color: Colors.white,
+      backgroundColor: Colors.grey.shade50,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(80),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF00B6B0),
+                Color(0xFF00A5A0),
+              ],
             ),
-            onPressed: _loadCategories,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0xFF00B6B0).withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            title: Column(
+              children: [
+                Text(
+                  'Manage Subscriptions',
+                  style: GoogleFonts.oswald(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                // TextField(
+                //   controller: _searchController,
+                //   decoration: InputDecoration(
+                //     hintText: 'Search by phone or first name',
+                //     prefixIcon: Icon(Icons.search, color: Color(0xFF00B6B0)),
+                //     filled: true,
+                //     fillColor: Colors.white,
+                //     contentPadding:
+                //         const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                //     border: OutlineInputBorder(
+                //       borderRadius: BorderRadius.circular(8),
+                //       borderSide: BorderSide.none,
+                //     ),
+                //   ),
+                //   onChanged: (value) {
+                //     setState(() {
+                //       _searchQuery = value.trim().toLowerCase();
+                //     });
+                //   },
+                // ),
+                StreamBuilder<QuerySnapshot>(
+                  stream: _getFilteredQuery().snapshots(),
+                  builder: (context, snapshot) {
+                    final count =
+                        snapshot.hasData ? snapshot.data!.docs.length : 0;
+                    return Text(
+                      '$count ${count == 1 ? 'user' : 'users'}',
+                      style: GoogleFonts.oswald(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  onPressed: _loadCategories,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
       body: Column(
         children: [
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by phone or first name',
+              prefixIcon: Icon(Icons.search, color: Color(0xFF00B6B0)),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value.trim().toLowerCase();
+              });
+            },
+          ),
           Container(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Filter: '),
-                const SizedBox(width: 8),
-                Expanded(
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: DropdownButton<String>(
                     value: _filterOption,
                     isExpanded: true,
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.keyboard_arrow_down,
+                        color: Color(0xFF00B6B0)),
                     onChanged: (value) {
                       if (value != null) {
                         setState(() {
@@ -916,7 +1055,19 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
                     items: _filterOptions.map((option) {
                       return DropdownMenuItem<String>(
                         value: option,
-                        child: Text(option),
+                        child: Row(
+                          children: [
+                            _getFilterIcon(option),
+                            const SizedBox(width: 8),
+                            Text(
+                              option,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     }).toList(),
                   ),
@@ -924,165 +1075,527 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
               ],
             ),
           ),
-          const Divider(),
+
+          // Users List
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _getFilteredQuery().snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No users found'));
-                }
-
-                return ListView.builder(
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final userDoc = snapshot.data!.docs[index];
-                    final userData = userDoc.data() as Map<String, dynamic>;
-                    final userId = userDoc.id;
-                    final email = userData['email'] ?? 'No email';
-                    final firstName = userData['firstName'] ?? '';
-                    final lastName = userData['lastName'] ?? '';
-                    final fullName = '$firstName $lastName'.trim();
-                    final isSubscribed = userData['isSubscribed'] ?? false;
-                    final subscriptionPlan =
-                        userData['subscriptionPlan'] ?? 'None';
-                    final subscriptionCategory =
-                        userData['subscriptionCategory'] ?? 'None';
-                    final subscriptionExpiry =
-                        userData['subscriptionExpiry'] as Timestamp?;
-                    final status = _getSubscriptionStatus(userData);
-
-                    // Setup subscription alert listener for this user
-                    _setupSubscriptionAlert(userId, email);
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      child: ExpansionTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              isSubscribed ? Colors.green : Colors.grey,
-                          child: Icon(
-                            isSubscribed ? Icons.check : Icons.close,
-                            color: Colors.white,
-                          ),
-                        ),
-                        title: Text(
-                          fullName.isNotEmpty ? fullName : email,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text('Status: $status'),
+                stream: _getFilteredQuery().snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Email: $email'),
-                                const SizedBox(height: 4),
-                                Text('Plan: $subscriptionPlan'),
-                                const SizedBox(height: 4),
-                                Text('Category: $subscriptionCategory'),
-                                const SizedBox(height: 4),
-                                if (subscriptionExpiry != null)
-                                  Text(
-                                      'Expiry: ${DateFormat('dd MMM yyyy').format(subscriptionExpiry.toDate())}'),
-                                const SizedBox(height: 16),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      ElevatedButton.icon(
-                                        onPressed: () => _approveSubscription(
-                                            context, userId, email),
-                                        icon: const Icon(
-                                          Icons.add,
-                                          color: Colors.white,
-                                        ),
-                                        label: const Text(
-                                          'New Plan',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          minimumSize: const Size(120,
-                                              40), // Constrain button width
-                                        ),
-                                      ),
-                                      const SizedBox(
-                                          width:
-                                              8), // Add spacing between buttons
-                                      if (isSubscribed)
-                                        ElevatedButton.icon(
-                                          onPressed: () => _extendSubscription(
-                                              context,
-                                              userId,
-                                              email,
-                                              subscriptionExpiry),
-                                          icon: const Icon(
-                                            Icons.extension,
-                                            color: Colors.white,
-                                          ),
-                                          label: const Text(
-                                            'Extend',
-                                            style:
-                                                TextStyle(color: Colors.white),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.blue,
-                                            minimumSize: const Size(120,
-                                                40), // Constrain button width
-                                          ),
-                                        ),
-                                      const SizedBox(
-                                          width:
-                                              8), // Add spacing between buttons
-                                      if (isSubscribed)
-                                        ElevatedButton.icon(
-                                          onPressed: () => _revokeSubscription(
-                                              context, userId, email),
-                                          icon: const Icon(
-                                            Icons.remove_circle,
-                                            color: Colors.white,
-                                          ),
-                                          label: const Text(
-                                            'Revoke',
-                                            style:
-                                                TextStyle(color: Colors.white),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                            minimumSize: const Size(120,
-                                                40), // Constrain button width
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF00B6B0)),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading users...',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
                             ),
                           ),
                         ],
                       ),
                     );
-                  },
-                );
-              },
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red.shade600,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Error loading data',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${snapshot.error}',
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              color: Colors.grey.shade400,
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No users found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Try adjusting your filter settings',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context, index) {
+                      final userDoc = snapshot.data!.docs[index];
+                      final userData = userDoc.data() as Map<String, dynamic>;
+                      final userId = userDoc.id;
+                      final email = userData['email'] ?? 'No email';
+
+                      final isSubscribed = userData['isSubscribed'] ?? false;
+                      final phone = userData['phone'] ?? '';
+
+                      final subscriptionPlan =
+                          userData['subscriptionPlan'] ?? 'None';
+                      final subscriptionCategory =
+                          userData['subscriptionCategory'] ?? 'None';
+                      final subscriptionExpiry =
+                          userData['subscriptionExpiry'] as Timestamp?;
+                      final status = _getSubscriptionStatus(userData);
+
+                      // Setup subscription alert listener for this user
+                      _setupSubscriptionAlert(userId, email);
+                      return FutureBuilder<DocumentSnapshot>(
+                        future: _firestore
+                            .collection('user_profile')
+                            .doc(userId)
+                            .get(),
+                        builder: (context, profileSnapshot) {
+                          String firstName = '';
+                          String lastName = '';
+                          if (profileSnapshot.hasData &&
+                              profileSnapshot.data!.exists) {
+                            final profileData = profileSnapshot.data!.data()
+                                as Map<String, dynamic>;
+                            firstName = profileData['firstName'] ?? '';
+                            lastName = profileData['lastName'] ?? '';
+                          }
+                          final fullName = '$firstName $lastName'.trim();
+
+                          if (_searchQuery.isNotEmpty) {
+                            final phoneMatch =
+                                phone.toLowerCase().contains(_searchQuery);
+                            final firstNameMatch =
+                                firstName.toLowerCase().contains(_searchQuery);
+                            if (!phoneMatch && !firstNameMatch) {
+                              return const SizedBox.shrink();
+                            }
+                          }
+
+                          return _buildEnhancedUserCard(
+                            firstName: firstName,
+                            lastName: lastName,
+                            userId: userId,
+                            email: email,
+                            fullName: fullName,
+                            phone: phone,
+                            isSubscribed: isSubscribed,
+                            subscriptionPlan: subscriptionPlan,
+                            subscriptionCategory: subscriptionCategory,
+                            subscriptionExpiry: subscriptionExpiry,
+                            status: status,
+                          );
+                        },
+                      );
+                    },
+                  );
+                }),
+          )
+        ],
+      ),
+    );
+  }
+
+// Helper method to get filter icons
+  Widget _getFilterIcon(String filter) {
+    switch (filter) {
+      case 'All Users':
+        return Icon(Icons.people, size: 16, color: Colors.grey.shade600);
+      case 'Subscribed':
+        return Icon(Icons.verified, size: 16, color: Colors.green);
+      case 'Not Subscribed':
+        return Icon(Icons.pending, size: 16, color: Colors.grey);
+      case 'Expired':
+        return Icon(Icons.hourglass_bottom, size: 16, color: Colors.red);
+      default:
+        return Icon(Icons.filter_list, size: 16, color: Colors.grey.shade600);
+    }
+  }
+
+// Enhanced user card widget
+  Widget _buildEnhancedUserCard({
+    required String userId,
+    required String email,
+    required String fullName,
+    required String firstName,
+    required String lastName,
+    required String phone,
+    required bool isSubscribed,
+    required String subscriptionPlan,
+    required String subscriptionCategory,
+    required Timestamp? subscriptionExpiry,
+    required String status,
+  }) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Colors.grey.shade50,
+            ],
+          ),
+        ),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.all(0),
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: isSubscribed
+                    ? [Colors.green.shade400, Colors.green.shade600]
+                    : [Colors.grey.shade400, Colors.grey.shade600],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (isSubscribed ? Colors.green : Colors.grey)
+                      .withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              isSubscribed ? Icons.verified : Icons.pending,
+              color: Colors.white,
+              size: 24,
             ),
           ),
-        ],
+          title: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      phone.isNotEmpty ? phone : 'No phone',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _getStatusColor(status).withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _getStatusColor(status),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                firstName.isNotEmpty ? firstName : 'No Name',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              if (subscriptionExpiry != null)
+                Text(
+                  'Exp: ${DateFormat('dd/MM/yy').format(subscriptionExpiry.toDate())}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: _isExpiringSoon(subscriptionExpiry.toDate())
+                        ? Colors.orange.shade700
+                        : Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
+          ),
+          children: [
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User Details Section
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(Icons.email_outlined, 'Email', email),
+                        const Divider(height: 16),
+                        _buildInfoRow(Icons.card_membership_outlined, 'Plan',
+                            subscriptionPlan),
+                        const Divider(height: 16),
+                        if (subscriptionExpiry != null) ...[
+                          _buildInfoRow(
+                            Icons.schedule_outlined,
+                            'Expires',
+                            DateFormat('dd MMM yyyy')
+                                .format(subscriptionExpiry.toDate()),
+                            valueColor:
+                                _isExpiringSoon(subscriptionExpiry.toDate())
+                                    ? Colors.orange.shade700
+                                    : null,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Actions Section
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Actions',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildActionButton(
+                              onPressed: () =>
+                                  _approveSubscription(context, userId, email),
+                              icon: Icons.add_circle_outline,
+                              label: 'New Plan',
+                              color: Colors.green,
+                            ),
+                            if (isSubscribed) ...[
+                              _buildActionButton(
+                                onPressed: () => _extendSubscription(
+                                    context, userId, email, subscriptionExpiry),
+                                icon: Icons.update,
+                                label: 'Extend',
+                                color: Colors.blue,
+                              ),
+                              _buildActionButton(
+                                onPressed: () =>
+                                    _revokeSubscription(context, userId, email),
+                                icon: Icons.block,
+                                label: 'Revoke',
+                                color: Colors.red,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+// Helper Methods (add these to your class)
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return Colors.green;
+      case 'expired':
+        return Colors.red;
+      case 'pending':
+        return Colors.orange;
+      case 'suspended':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  bool _isExpiringSoon(DateTime expiryDate) {
+    final now = DateTime.now();
+    final difference = expiryDate.difference(now).inDays;
+    return difference <= 30 && difference >= 0;
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.grey.shade600),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? Colors.black87,
+            ),
+            textAlign: TextAlign.end,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: color,
+        elevation: 2,
+        shadowColor: color.withOpacity(0.4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       ),
     );
   }

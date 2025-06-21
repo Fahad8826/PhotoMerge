@@ -420,11 +420,18 @@ class _ProfilePageState extends State<ProfilePage> {
                             'First Name', Icons.person, _firstNameController),
                         _buildTextFieldname(
                             'Last Name', Icons.person, _lastNameController),
-                        _buildTextField('Email', Icons.email, _emailController,
-                            type: TextInputType.emailAddress,
-                            overrideEnabled: false),
-                        _buildTextField('Phone', Icons.phone, _phoneController,
-                            type: TextInputType.phone, overrideEnabled: false),
+                        _buildTextField(
+                          'Email',
+                          Icons.email,
+                          _emailController,
+                          type: TextInputType.emailAddress,
+                        ),
+                        _buildTextField(
+                          'Phone',
+                          Icons.phone,
+                          _phoneController,
+                          type: TextInputType.phone,
+                        ),
                         const SizedBox(height: 16),
                         _buildSectionTitle('Company Information'),
                         _buildCompanyLogoSection(),

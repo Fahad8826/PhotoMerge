@@ -387,18 +387,7 @@ class ImageDetailViewModel extends ChangeNotifier {
     );
   }
 
-  // Widget _buildPlanOption(
-  //     String planName, int price, String duration, BuildContext context) {
-  //   return Card(
-  //     margin: const EdgeInsets.symmetric(vertical: 4),
-  //     child: ListTile(
-  //       title: Text(planName),
-  //       subtitle: Text('\₹$price/$duration'),
-  //       trailing: const Icon(Icons.arrow_forward),
-  //       onTap: () => _redirectToWhatsApp(planName, price, duration, context),
-  //     ),
-  //   );
-  // }
+
   Widget _buildPlanOption(
       String planName, int price, String duration, BuildContext context) {
     return Card(

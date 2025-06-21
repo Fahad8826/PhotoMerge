@@ -174,20 +174,20 @@ class _ImageDetailViewState extends State<ImageDetailView> {
       height: 50.0,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              viewModel.backgroundColor.withOpacity(0.01),
-              viewModel.backgroundColor.withOpacity(0.2),
-              viewModel.backgroundColor.withOpacity(0.5),
-              viewModel.backgroundColor.withOpacity(0.7),
-              viewModel.backgroundColor.withOpacity(0.9),
-              viewModel.backgroundColor,
-            ],
-            stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0],
-          ),
+          // gradient: LinearGradient(
+          //   begin: Alignment.topCenter,
+          //   end: Alignment.bottomCenter,
+          //   colors: [
+          //     Colors.transparent,
+          //     viewModel.backgroundColor.withOpacity(0.01),
+          //     viewModel.backgroundColor.withOpacity(0.2),
+          //     viewModel.backgroundColor.withOpacity(0.5),
+          //     viewModel.backgroundColor.withOpacity(0.7),
+          //     viewModel.backgroundColor.withOpacity(0.9),
+          //     viewModel.backgroundColor,
+          //   ],
+          //   stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0],
+          // ),
         ),
       ),
     );
