@@ -309,7 +309,7 @@ class _AdminSubscriptionPageState extends State<AdminSubscriptionPage> {
                       Text(
                         email,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

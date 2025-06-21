@@ -94,6 +94,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => AuthWrapper(),
+        // '/': (context) => ImageCrop(),
         '/signup': (context) => SignupPage(),
         '/login': (context) => LoginPage(),
         '/user': (context) => UserDashboard(),

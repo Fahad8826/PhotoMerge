@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:photomerge/Crop/helperclass.dart' as AppHelper;
 import 'package:photomerge/User/View/home.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
@@ -25,6 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _firebaseAuth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
   final _formKey = GlobalKey<FormState>();
+  final picker = ImagePicker();
 
   // Color palette (unchanged)
   static const Color primaryColor = Color(0xFF00A19A);
@@ -156,30 +158,102 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _pickImage(ImageSource source, bool isUserImage) async {
-    try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 800,
-        maxHeight: 800,
-      );
+// Replace your existing _handleProcessedImage method with this:
+  void _handleProcessedImage(File processedImage, bool isUserImage) {
+    setState(() {
+      if (isUserImage) {
+        // Handle user profile image
+        _userImage = processedImage;
+        // Clear the URL since we have a new local file
+        _userImageUrl = null;
+      } else {
+        // Handle company logo
+        _companyLogo = processedImage;
+        // Clear the URL since we have a new local file
+        _companyLogoUrl = null;
+      }
+    });
 
-      if (pickedFile != null && mounted) {
-        setState(() {
-          if (isUserImage) {
-            _userImage = File(pickedFile.path);
-          } else {
-            _companyLogo = File(pickedFile.path);
+    // Show success message
+    _showSnackBar('Image processed successfully!');
+  }
+
+// Also, you should remove the duplicate _showErrorSnackBar method since you already have _showSnackBar
+// Just update your error calls to use _showSnackBar with isError: true
+
+// Update these error calls in _pickImageWithCropCompress:
+  Future<void> _pickImageWithCropCompress(
+      ImageSource source, bool isUserImage) async {
+    try {
+      final XFile? pickedImage = await picker.pickImage(source: source);
+
+      if (pickedImage != null) {
+        File image = File(pickedImage.path);
+
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+
+        try {
+          // Log size before compression
+          final sizeInKbBefore = image.lengthSync() / 1024;
+          print('Before Compress: ${sizeInKbBefore.toStringAsFixed(2)} KB');
+
+          // Compress the image
+          File? compressedImage = await AppHelper.compress(image: image);
+          if (compressedImage == null) {
+            Navigator.pop(context); // Close loading dialog
+            _showSnackBar('Failed to compress image', isError: true);
+            return;
           }
-        });
+
+          // Log size after compression
+          final sizeInKbAfter = compressedImage.lengthSync() / 1024;
+          print('After Compress: ${sizeInKbAfter.toStringAsFixed(2)} KB');
+
+          // Crop the image
+          File? croppedImage = await AppHelper.cropImage(compressedImage);
+          Navigator.pop(context); // Close loading dialog
+
+          if (croppedImage == null) {
+            _showSnackBar('Image cropping cancelled', isError: true);
+            return;
+          }
+
+          // Log final size
+          final finalSizeInKb = croppedImage.lengthSync() / 1024;
+          print('Final size: ${finalSizeInKb.toStringAsFixed(2)} KB');
+
+          // Handle the processed image based on isUserImage flag
+          _handleProcessedImage(croppedImage, isUserImage);
+        } catch (e) {
+          Navigator.pop(context); // Close loading dialog
+          _showSnackBar('Error processing image: $e', isError: true);
+        }
       }
     } catch (e) {
-      _showSnackBar('Failed to pick image: $e', isError: true);
+      _showSnackBar('Error picking image: $e', isError: true);
     }
   }
 
+  // Show success message
+
+  // Show error message
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  // Enhanced image picker options with crop functionality
   void _showImagePickerOptions(bool isUserImage) {
     showModalBottomSheet(
       context: context,
@@ -188,24 +262,74 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Select Image Source',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+
+          // Gallery option
           ListTile(
             leading: Icon(Icons.photo_library, color: primaryColor),
-            title: Text('Gallery',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+            title: Text(
+              'Gallery',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              'Choose from your photos',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
             onTap: () {
               Navigator.pop(context);
-              _pickImage(ImageSource.gallery, isUserImage);
+              _pickImageWithCropCompress(ImageSource.gallery, isUserImage);
             },
           ),
+
+          // Camera option
           ListTile(
             leading: Icon(Icons.camera_alt, color: primaryColor),
-            title: Text('Camera',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+            title: Text(
+              'Camera',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              'Take a new photo',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
             onTap: () {
               Navigator.pop(context);
-              _pickImage(ImageSource.camera, isUserImage);
+              _pickImageWithCropCompress(ImageSource.camera, isUserImage);
             },
           ),
+
+          // Cancel option
+          ListTile(
+            leading: Icon(Icons.cancel, color: Colors.red),
+            title: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                color: Colors.red,
+              ),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+
           const SizedBox(height: 8),
         ],
       ),
@@ -476,25 +600,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
                             if (shouldSave == true) {
                               await _updateUserData();
-
-                              // Optionally show a success message
-                              // showDialog(
-                              //   context: context,
-                              //   builder: (BuildContext context) {
-                              //     return AlertDialog(
-                              //       title: const Text('Success'),
-                              //       content: const Text(
-                              //           'Your profile has been updated.'),
-                              //       actions: [
-                              //         TextButton(
-                              //           onPressed: () =>
-                              //               Navigator.of(context).pop(),
-                              //           child: const Text('OK'),
-                              //         ),
-                              //       ],
-                              //     );
-                              //   },
-                              // );
                             }
                           },
                           child: const Text('Save Profile'),

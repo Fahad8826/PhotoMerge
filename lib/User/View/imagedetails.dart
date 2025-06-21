@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -173,27 +172,10 @@ class _ImageDetailViewState extends State<ImageDetailView> {
       right: 0,
       height: 50.0,
       child: Container(
-        decoration: BoxDecoration(
-          // gradient: LinearGradient(
-          //   begin: Alignment.topCenter,
-          //   end: Alignment.bottomCenter,
-          //   colors: [
-          //     Colors.transparent,
-          //     viewModel.backgroundColor.withOpacity(0.01),
-          //     viewModel.backgroundColor.withOpacity(0.2),
-          //     viewModel.backgroundColor.withOpacity(0.5),
-          //     viewModel.backgroundColor.withOpacity(0.7),
-          //     viewModel.backgroundColor.withOpacity(0.9),
-          //     viewModel.backgroundColor,
-          //   ],
-          //   stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0],
-          // ),
-        ),
+        decoration: BoxDecoration(),
       ),
     );
   }
-
-
 
   Widget _buildUserInfo(ImageDetailViewModel viewModel) {
     final user = viewModel.userData!;
@@ -265,11 +247,11 @@ class _ImageDetailViewState extends State<ImageDetailView> {
                   .isNotEmpty
               ? '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim()
               : 'Unknown User',
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 13,
-            color: Colors.white,
-            shadows: [
+            color: Colors.white.withOpacity(0.8),
+            shadows: const [
               Shadow(
                 offset: Offset(0, 1),
                 blurRadius: 2,
@@ -281,7 +263,8 @@ class _ImageDetailViewState extends State<ImageDetailView> {
         Text(user['designation'] ?? 'No designation',
             style: const TextStyle(fontSize: 11, color: Colors.white)),
         Text(user['phone'] ?? 'No Number',
-            style: const TextStyle(fontSize: 11, color: Colors.white)),
+            style:
+                TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.8))),
         Text(user['email'] ?? 'No email',
             style: const TextStyle(fontSize: 10, color: Colors.white)),
         Text(user['companyWebsite'] ?? 'No Website',

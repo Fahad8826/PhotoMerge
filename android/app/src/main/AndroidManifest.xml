@@ -1,18 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permissions for Android 12 and below (API 32 and below) -->
+    
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <!-- Permission for Android 13+ (API 33 and above) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- Notification permission for Android 13+ (API 33 and above) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" android:minSdkVersion="33" />
-    <!-- Add Internet permission for url_launcher -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Queries for WhatsApp and existing ProcessTextPlugin -->
+    
     <queries>
-        <!-- For WhatsApp to allow canLaunchUrl to detect it -->
+      
         <package android:name="com.whatsapp" />
         
         <intent>
@@ -43,7 +41,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Required meta-data for Flutter -->
+     
+
+          <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
