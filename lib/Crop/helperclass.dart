@@ -1,49 +1,4 @@
-// import 'dart:io';
 
-// import 'package:flutter/material.dart';
-// import 'package:flutter_image_compress/flutter_image_compress.dart';
-// import 'package:image_picker/image_picker.dart';
-// import 'package:image_cropper/image_cropper.dart';
-// import 'package:path/path.dart' as path;
-// import 'package:path_provider/path_provider.dart';
-
-
-// Future<File?> cropImage(File? imageFile) async {
-//   var _croppedFile = await ImageCropper().cropImage(
-//     sourcePath: imageFile!.path,
-//     aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
-//     uiSettings: [
-//       AndroidUiSettings(
-//         toolbarColor: Color(0xFF2564AF),
-//         toolbarWidgetColor: Colors.white,
-//         initAspectRatio: CropAspectRatioPreset.original,
-//         lockAspectRatio: false,
-//       ),
-//     ],
-//   );
-
-//   return _croppedFile != null ? File(_croppedFile.path) : null;
-// }
-
-
-//  Future<File?> compress({
-//   required File image,
-//   int quality = 80,
-//   int minWidth = 800,
-//   int minHeight = 600,
-// }) async {
-//   final dir = await getTemporaryDirectory();
-//   final targetPath = path.join(dir.path, 'compressed_${path.basename(image.path)}');
-
-//   final result = await FlutterImageCompress.compressAndGetFile(
-//     image.absolute.path,
-//     targetPath,
-//     quality: quality,
-//     minWidth: minWidth,
-//     minHeight: minHeight,
-//   );
-//   return result != null ? File(result.path) : null;
-// }
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -127,7 +82,7 @@ Future<File?> compress({
       return null;
     }
   } catch (e) {
-    print('Error compressing image: $e');
+    print('Error compressing image: $e'); 
     return null;
   }
 }
