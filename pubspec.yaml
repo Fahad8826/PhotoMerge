@@ -54,6 +54,7 @@ dependencies:
   image_cropper: ^9.1.0
   flutter_image_compress: ^2.4.0
   excel: ^4.0.6
+  flex_color_picker: ^3.3.0
 
   
 
