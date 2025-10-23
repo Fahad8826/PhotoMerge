@@ -29,6 +29,7 @@ import 'package:photomerge/User/View/support.dart';
 import 'package:photomerge/User/View/usersubscription.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:upgrader/upgrader.dart';
 
 late final AudioHandler audioHandler;
 void main() async {
@@ -66,6 +67,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        
         ChangeNotifierProvider(create: (_) => AuthProviders()),
         ChangeNotifierProvider(create: (_) => UserDataProvider()),
         ChangeNotifierProvider(create: (_) => CategoriesProvider()),
@@ -85,35 +87,37 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Role Based Auth',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+    return UpgradeAlert(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Role Based Auth',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+        ),
+        initialRoute: '/',
+        routes: {
+          '/': (context) => AuthWrapper(),
+          // '/': (context) => ImageCrop(),
+          '/signup': (context) => SignupPage(),
+          '/login': (context) => LoginPage(),
+          '/user': (context) => UserDashboard(),
+          '/admin': (context) => AdminDashboard(),
+          '/profile': (context) => ProfilePage(),
+          '/createadmin': (context) => create_admin(),
+          '/craeteimage': (context) => AddImagePage(),
+          '/listimages': (context) => ListImages(),
+          '/Category': (context) => CategoryListPage(),
+          '/listusers': (context) => UserListPage(),
+          '/submanage': (context) => AdminSubscriptionPage(),
+          '/usersubscription': (context) => UserSubscriptionPage(),
+          '/carousel': (context) => AdminImageUploadPage(),
+          '/about': (context) => AboutPage(),
+          '/support': (context) => SupportPage(),
+          '/vediourl': (context) => AddVediourl(),
+          '/listvedios': (context) => AllVideosPage(),
+          '/adminlistvedio': (context) => VideoListPage(),
+        },
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => AuthWrapper(),
-        // '/': (context) => ImageCrop(),
-        '/signup': (context) => SignupPage(),
-        '/login': (context) => LoginPage(),
-        '/user': (context) => UserDashboard(),
-        '/admin': (context) => AdminDashboard(),
-        '/profile': (context) => ProfilePage(),
-        '/createadmin': (context) => create_admin(),
-        '/craeteimage': (context) => AddImagePage(),
-        '/listimages': (context) => ListImages(),
-        '/Category': (context) => CategoryListPage(),
-        '/listusers': (context) => UserListPage(),
-        '/submanage': (context) => AdminSubscriptionPage(),
-        '/usersubscription': (context) => UserSubscriptionPage(),
-        '/carousel': (context) => AdminImageUploadPage(),
-        '/about': (context) => AboutPage(),
-        '/support': (context) => SupportPage(),
-        '/vediourl': (context) => AddVediourl(),
-        '/listvedios': (context) => AllVideosPage(),
-        '/adminlistvedio': (context) => VideoListPage(),
-      },
     );
   }
 }

@@ -149,14 +149,14 @@ class _ImageDetailViewState extends State<ImageDetailView> {
                           ),
                         ),
                       ),
-                      Positioned.fill(
-                        child: Center(
-                          child: CustomPaint(
-                            painter:
-                                WatermarkPainter(userData: viewModel.userData),
-                          ),
-                        ),
-                      ),
+                      // Positioned.fill(
+                      //   child: Center(
+                      //     child: CustomPaint(
+                      //       painter:
+                      //           WatermarkPainter(userData: viewModel.userData),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
@@ -379,45 +379,45 @@ class _ImageDetailViewState extends State<ImageDetailView> {
   }
 }
 
-class WatermarkPainter extends CustomPainter {
-  final Map<String, dynamic>? userData;
+// class WatermarkPainter extends CustomPainter {
+//   final Map<String, dynamic>? userData;
 
-  WatermarkPainter({this.userData});
+//   WatermarkPainter({this.userData});
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
-        children: [
-          TextSpan(
-            text: userData != null &&
-                    '${userData!['firstName'] ?? ''} ${userData!['lastName'] ?? ''}'
-                        .trim()
-                        .isNotEmpty
-                ? '${userData!['firstName'] ?? ''} ${userData!['lastName'] ?? ''}'
-                    .trim()
-                : 'Unknown User',
-          ),
-          const TextSpan(text: ' | '),
-          TextSpan(
-            text: userData?['phone'] ?? '',
-          ),
-        ],
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
+//   @override
+//   void paint(Canvas canvas, Size size) {
+//     final textPainter = TextPainter(
+//       text: TextSpan(
+//         style: const TextStyle(
+//           color: Colors.white70,
+//           fontSize: 11,
+//           fontWeight: FontWeight.bold,
+//         ),
+//         children: [
+//           TextSpan(
+//             text: userData != null &&
+//                     '${userData!['firstName'] ?? ''} ${userData!['lastName'] ?? ''}'
+//                         .trim()
+//                         .isNotEmpty
+//                 ? '${userData!['firstName'] ?? ''} ${userData!['lastName'] ?? ''}'
+//                     .trim()
+//                 : 'Unknown User',
+//           ),
+//           const TextSpan(text: ' | '),
+//           TextSpan(
+//             text: userData?['phone'] ?? '',
+//           ),
+//         ],
+//       ),
+//       textDirection: TextDirection.ltr,
+//       textAlign: TextAlign.center,
+//     );
 
-    textPainter.layout();
-    final offset = Offset((size.width - textPainter.width) / 2, 8);
-    textPainter.paint(canvas, offset);
-  }
+//     textPainter.layout();
+//     final offset = Offset((size.width - textPainter.width) / 2, 8);
+//     textPainter.paint(canvas, offset);
+//   }
 
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
-}
+//   @override
+//   bool shouldRepaint(CustomPainter oldDelegate) => false;
+// }

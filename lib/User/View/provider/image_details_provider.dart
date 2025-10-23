@@ -32,14 +32,14 @@ class ImageDetailViewModel extends ChangeNotifier {
     Colors.pink,
     Colors.orange,
     Colors.redAccent,
-    Colors.greenAccent,
-    Colors.lightGreen,
-    Colors.lightBlueAccent,
-    Colors.amberAccent,
-    Colors.cyanAccent,
-    Colors.limeAccent,
-    Colors.purpleAccent,
-    Colors.brown,
+    // Colors.greenAccent,
+    // Colors.lightGreen,
+    // Colors.lightBlueAccent,
+    // Colors.amberAccent,
+    // Colors.cyanAccent,
+    // Colors.limeAccent,
+    // Colors.purpleAccent,
+    // Colors.brown,
   ];
 
   // Predefined color list for text
@@ -53,12 +53,12 @@ class ImageDetailViewModel extends ChangeNotifier {
     Colors.blue,
     Colors.purple,
     Colors.amber,
-    Colors.brown,
-    Colors.deepOrange,
-    Colors.lightBlue,
-    Colors.lime,
-    Colors.pinkAccent,
-    Colors.tealAccent,
+    // Colors.brown,
+    // Colors.deepOrange,
+    // Colors.lightBlue,
+    // Colors.lime,
+    // Colors.pinkAccent,
+    // Colors.tealAccent,
   ];
 
   Color get selectedBackgroundColor => _selectedBackgroundColor;

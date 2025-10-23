@@ -1,3 +1,5 @@
+
+import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,6 +17,15 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
     as flutterSecureStorage;
 
+class CloudinaryConfig {
+  static const String cloudName = 'dlacr6mpw';
+  static const String uploadPreset = 'BrandBuilder';
+  static const String apiKey =
+      '725816153519724'; // Replace with your Cloudinary API Key
+  static const String apiSecret =
+      '2XjX4826vpnX_PVkbLf7_bWNus4'; // Replace with your Cloudinary API Secret
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -28,7 +39,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final picker = ImagePicker();
 
-  // Color palette (unchanged)
+  // Color palette
   static const Color primaryColor = Color(0xFF00A19A);
   static const Color accentColor = Color(0xFF005F5C);
   static const Color backgroundColor = Color(0xFFF5F7FA);
@@ -58,7 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // UI state
   bool _isLoading = true;
-  bool _isEditing = true; // Start in edit mode for simplicity
+  bool _isEditing = true;
   bool _isSaving = false;
 
   @override
@@ -158,30 +169,17 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// Replace your existing _handleProcessedImage method with this:
   void _handleProcessedImage(File processedImage, bool isUserImage) {
     setState(() {
       if (isUserImage) {
-        // Handle user profile image
         _userImage = processedImage;
-        // Clear the URL since we have a new local file
-        _userImageUrl = null;
       } else {
-        // Handle company logo
         _companyLogo = processedImage;
-        // Clear the URL since we have a new local file
-        _companyLogoUrl = null;
       }
     });
-
-    // Show success message
     _showSnackBar('Image processed successfully!');
   }
 
-// Also, you should remove the duplicate _showErrorSnackBar method since you already have _showSnackBar
-// Just update your error calls to use _showSnackBar with isError: true
-
-// Update these error calls in _pickImageWithCropCompress:
   Future<void> _pickImageWithCropCompress(
       ImageSource source, bool isUserImage) async {
     try {
@@ -190,49 +188,41 @@ class _ProfilePageState extends State<ProfilePage> {
       if (pickedImage != null) {
         File image = File(pickedImage.path);
 
-        // Show loading indicator
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
         );
 
         try {
-          // Log size before compression
           final sizeInKbBefore = image.lengthSync() / 1024;
           print('Before Compress: ${sizeInKbBefore.toStringAsFixed(2)} KB');
 
-          // Compress the image
           File? compressedImage = await AppHelper.compress(image: image);
           if (compressedImage == null) {
-            Navigator.pop(context); // Close loading dialog
+            Navigator.pop(context);
             _showSnackBar('Failed to compress image', isError: true);
             return;
           }
 
-          // Log size after compression
           final sizeInKbAfter = compressedImage.lengthSync() / 1024;
           print('After Compress: ${sizeInKbAfter.toStringAsFixed(2)} KB');
 
-          // Crop the image
           File? croppedImage = await AppHelper.cropImage(compressedImage);
-          Navigator.pop(context); // Close loading dialog
+          Navigator.pop(context);
 
           if (croppedImage == null) {
             _showSnackBar('Image cropping cancelled', isError: true);
             return;
           }
 
-          // Log final size
           final finalSizeInKb = croppedImage.lengthSync() / 1024;
           print('Final size: ${finalSizeInKb.toStringAsFixed(2)} KB');
 
-          // Handle the processed image based on isUserImage flag
           _handleProcessedImage(croppedImage, isUserImage);
         } catch (e) {
-          Navigator.pop(context); // Close loading dialog
+          Navigator.pop(context);
           _showSnackBar('Error processing image: $e', isError: true);
         }
       }
@@ -241,19 +231,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // Show success message
-
-  // Show error message
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-  // Enhanced image picker options with crop functionality
   void _showImagePickerOptions(bool isUserImage) {
     showModalBottomSheet(
       context: context,
@@ -262,20 +239,15 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(16),
             child: Text(
               'Select Image Source',
               style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+                  fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
           const Divider(height: 1),
-
-          // Gallery option
           ListTile(
             leading: Icon(Icons.photo_library, color: primaryColor),
             title: Text(
@@ -284,18 +256,13 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             subtitle: Text(
               'Choose from your photos',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
             ),
             onTap: () {
               Navigator.pop(context);
               _pickImageWithCropCompress(ImageSource.gallery, isUserImage);
             },
           ),
-
-          // Camera option
           ListTile(
             leading: Icon(Icons.camera_alt, color: primaryColor),
             title: Text(
@@ -304,61 +271,180 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             subtitle: Text(
               'Take a new photo',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
             ),
             onTap: () {
               Navigator.pop(context);
               _pickImageWithCropCompress(ImageSource.camera, isUserImage);
             },
           ),
-
-          // Cancel option
           ListTile(
             leading: Icon(Icons.cancel, color: Colors.red),
             title: Text(
               'Cancel',
               style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                color: Colors.red,
-              ),
+                  fontWeight: FontWeight.w500, color: Colors.red),
             ),
             onTap: () {
               Navigator.pop(context);
             },
           ),
-
           const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  Future<String?> _uploadImage(File? imageFile, String? currentUrl) async {
+  Future<String?> _uploadImage(File? imageFile, String? currentUrl,
+      {String? imageType}) async {
     if (imageFile == null) return currentUrl;
 
     setState(() => _isSaving = true);
+
     try {
-      final url =
-          Uri.parse('https://api.cloudinary.com/v1_1/dlacr6mpw/image/upload');
+      if (currentUrl != null && currentUrl.isNotEmpty) {
+        print('Deleting previous image: $currentUrl');
+        await _deleteImageFromCloudinary(currentUrl);
+      }
+
+      String folder = imageType ?? 'profile_images';
+      final url = Uri.parse(
+          'https://api.cloudinary.com/v1_1/${CloudinaryConfig.cloudName}/image/upload');
+
       final request = http.MultipartRequest('POST', url)
-        ..fields['upload_preset'] = 'BrandBuilder'
+        ..fields['upload_preset'] = CloudinaryConfig.uploadPreset
+        ..fields['folder'] = folder
+        ..fields['public_id'] =
+            '${_firebaseAuth.currentUser?.uid}_${DateTime.now().millisecondsSinceEpoch}'
         ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
 
       final response =
           await request.send().timeout(const Duration(seconds: 30));
+
       if (response.statusCode == 200) {
         final responseData = await response.stream.bytesToString();
-        return jsonDecode(responseData)['secure_url'];
+        final jsonResponse = jsonDecode(responseData);
+
+        final newUrl = jsonResponse['secure_url'];
+        final publicId = jsonResponse['public_id'];
+
+        print('Image uploaded successfully: $newUrl');
+        print('Public ID: $publicId');
+
+        return newUrl;
       }
+
       throw Exception('Upload failed with status ${response.statusCode}');
     } catch (e) {
-      _showSnackBar('Image upload failed', isError: true);
+      print('Image upload error: $e');
+      _showSnackBar('Image upload failed: ${e.toString()}', isError: true);
       return currentUrl;
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<bool> _deleteImageFromCloudinary(String imageUrl) async {
+    try {
+      String? publicId = _extractPublicIdFromUrl(imageUrl);
+      if (publicId == null) {
+        print('Could not extract public_id from URL: $imageUrl');
+        _showSnackBar('Invalid image URL format', isError: true);
+        return false;
+      }
+
+      print('Attempting to delete image with public_id: $publicId');
+
+      final deleteUrl = Uri.parse(
+          'https://api.cloudinary.com/v1_1/${CloudinaryConfig.cloudName}/image/destroy');
+      final timestamp =
+          (DateTime.now().millisecondsSinceEpoch / 1000).round().toString();
+      final signatureString =
+          'public_id=$publicId&timestamp=$timestamp${CloudinaryConfig.apiSecret}';
+      final signature = sha1.convert(utf8.encode(signatureString)).toString();
+
+      print('Signature string: $signatureString'); // Debug log
+      print('Generated signature: $signature'); // Debug log
+
+      final response = await http.post(
+        deleteUrl,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'public_id': publicId,
+          'timestamp': timestamp,
+          'api_key': CloudinaryConfig.apiKey,
+          'signature': signature,
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      print('Delete response status: ${response.statusCode}');
+      print('Delete response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['result'] == 'ok') {
+          print('Image deleted successfully from Cloudinary');
+          _showSnackBar('Image deleted successfully');
+          return true;
+        } else {
+          print('Delete failed: ${jsonResponse['result']}');
+          // _showSnackBar('Failed to delete image: ${jsonResponse['result']}',
+              // isError: true);
+          return false;
+        }
+      } else {
+        final errorBody = jsonDecode(response.body);
+        final errorMessage = errorBody['error']?['message'] ?? 'Unknown error';
+        print(
+            'Failed to delete image. Status code: ${response.statusCode}, Body: ${response.body}');
+        _showSnackBar('Failed to delete image: $errorMessage', isError: true);
+        return false;
+      }
+    } catch (e, stackTrace) {
+      print('Error deleting image from Cloudinary: $e');
+      print('Stack trace: $stackTrace');
+      _showSnackBar('Error deleting image: $e', isError: true);
+      return false;
+    }
+  }
+
+  String? _extractPublicIdFromUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+
+      int uploadIndex = pathSegments.indexOf('upload');
+      if (uploadIndex == -1 || uploadIndex >= pathSegments.length - 1) {
+        print('Invalid Cloudinary URL format: $url');
+        return null;
+      }
+
+      List<String> remainingSegments = pathSegments.sublist(uploadIndex + 1);
+      if (remainingSegments.isNotEmpty &&
+          RegExp(r'^v\d+$').hasMatch(remainingSegments.first)) {
+        remainingSegments = remainingSegments.sublist(1);
+      }
+
+      if (remainingSegments.isEmpty) {
+        print('No public_id found in URL: $url');
+        return null;
+      }
+
+      String publicId = remainingSegments.join('/');
+      if (publicId.contains('.')) {
+        publicId = publicId.substring(0, publicId.lastIndexOf('.'));
+      }
+
+      if (publicId.isEmpty) {
+        print('Extracted public_id is empty for URL: $url');
+        return null;
+      }
+
+      print('Extracted public_id: $publicId');
+      return publicId;
+    } catch (e) {
+      print('Error extracting public_id: $e');
+      return null;
     }
   }
 
@@ -400,13 +486,28 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     setState(() => _isSaving = true);
-    try {
-      _userImageUrl = await _uploadImage(_userImage, _userImageUrl);
-      _companyLogoUrl = await _uploadImage(_companyLogo, _companyLogoUrl);
 
-      // Get current device ID
-      final String deviceId =
-          await _getDeviceId(); // Add _getDeviceId method (see below)
+    try {
+      String? newUserImageUrl = _userImageUrl;
+      String? newCompanyLogoUrl = _companyLogoUrl;
+
+      if (_userImage != null) {
+        newUserImageUrl = await _uploadImage(_userImage, _userImageUrl,
+            imageType: 'profile_images');
+        if (newUserImageUrl != null) {
+          _userImage = null;
+        }
+      }
+
+      if (_companyLogo != null) {
+        newCompanyLogoUrl = await _uploadImage(_companyLogo, _companyLogoUrl,
+            imageType: 'company_logos');
+        if (newCompanyLogoUrl != null) {
+          _companyLogo = null;
+        }
+      }
+
+      final String deviceId = await _getDeviceId();
 
       final profileData = {
         'firstName': _firstNameController.text.trim(),
@@ -418,34 +519,34 @@ class _ProfilePageState extends State<ProfilePage> {
         'companyWebsite': _websiteController.text.trim(),
         'district': _districtController.text.trim(),
         'branch': _branchController.text.trim(),
-        'userImage': _userImageUrl ?? '',
-        'companyLogo': _companyLogoUrl ?? '',
+        'userImage': newUserImageUrl ?? '',
+        'companyLogo': newCompanyLogoUrl ?? '',
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      // Check if all required fields are non-empty
       bool isProfileComplete = _firstNameController.text.trim().isNotEmpty &&
           _lastNameController.text.trim().isNotEmpty &&
           _emailController.text.trim().isNotEmpty &&
           _phoneController.text.trim().isNotEmpty &&
-          (_userImageUrl?.isNotEmpty ?? false);
+          (newUserImageUrl?.isNotEmpty ?? false);
 
-      // Update user_profile collection
       await _firestore
           .collection('user_profile')
           .doc(currentUser.uid)
           .set(profileData, SetOptions(merge: true));
 
-      // Update users collection with profile_status and preserve deviceId
       await _firestore.collection('users').doc(currentUser.uid).set({
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
         'isActive': true,
         'role': 'user',
         'profile_status': isProfileComplete,
-        'deviceId': deviceId, // Preserve deviceId
-        'isLoggedIn': true, // Preserve login status
+        'deviceId': deviceId,
+        'isLoggedIn': true,
       }, SetOptions(merge: true));
+
+      _userImageUrl = newUserImageUrl;
+      _companyLogoUrl = newCompanyLogoUrl;
 
       if (mounted) {
         _showSnackBar('Profile updated successfully');
@@ -454,12 +555,107 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Error updating profile: $e', isError: true);
+        _showSnackBar('Error updating profile: ${e.toString()}', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
+
+  Future<void> _deleteImageManually(bool isUserImage) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Delete Image',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            'Are you sure you want to delete this ${isUserImage ? 'profile picture' : 'company logo'}?',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: textSecondaryColor),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _deleteImagePermanently(isUserImage);
+              },
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(
+                    color: errorColor, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteImagePermanently(bool isUserImage) async {
+    setState(() => _isSaving = true);
+
+    try {
+      String? imageUrl = isUserImage ? _userImageUrl : _companyLogoUrl;
+
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        bool deleted = await _deleteImageFromCloudinary(imageUrl);
+
+        if (deleted) {
+          await _firestore
+              .collection('user_profile')
+              .doc(_firebaseAuth.currentUser!.uid)
+              .update({
+            isUserImage ? 'userImage' : 'companyLogo': '',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+          setState(() {
+            if (isUserImage) {
+              _userImage = null;
+              _userImageUrl = '';
+            } else {
+              _companyLogo = null;
+              _companyLogoUrl = '';
+            }
+          });
+
+          _showSnackBar(
+              '${isUserImage ? 'Profile picture' : 'Company logo'} deleted successfully');
+        } else {
+          _showSnackBar('Failed to delete image from cloud storage',
+              isError: true);
+        }
+      } else {
+        setState(() {
+          if (isUserImage) {
+            _userImage = null;
+            _userImageUrl = '';
+          } else {
+            _companyLogo = null;
+            _companyLogoUrl = '';
+          }
+        });
+        _showSnackBar('Image removed');
+      }
+    } catch (e) {
+      _showSnackBar('Error deleting image: ${e.toString()}', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // Rest of the code (build method, helper methods, etc.) remains unchanged
+  // Include the build method and other widgets as in the previous version
+  // ...
 
   @override
   Widget build(BuildContext context) {
@@ -544,18 +740,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             'First Name', Icons.person, _firstNameController),
                         _buildTextFieldname(
                             'Last Name', Icons.person, _lastNameController),
-                        _buildTextField(
-                          'Email',
-                          Icons.email,
-                          _emailController,
-                          type: TextInputType.emailAddress,
-                        ),
-                        _buildTextField(
-                          'Phone',
-                          Icons.phone,
-                          _phoneController,
-                          type: TextInputType.phone,
-                        ),
+                        _buildTextField('Email', Icons.email, _emailController,
+                            type: TextInputType.emailAddress),
+                        _buildTextField('Phone', Icons.phone, _phoneController,
+                            type: TextInputType.phone),
                         const SizedBox(height: 16),
                         _buildSectionTitle('Company Information'),
                         _buildCompanyLogoSection(),
@@ -566,12 +754,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         _builddistrict('District', Icons.location_city,
                             _districtController),
                         _buildbranch('Branch', Icons.store, _branchController),
-                        _buildweb(
-                          'Website',
-                          Icons.link,
-                          _websiteController,
-                          type: TextInputType.url,
-                        ),
+                        _buildweb('Website', Icons.link, _websiteController,
+                            type: TextInputType.url),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () async {
@@ -584,13 +768,13 @@ class _ProfilePageState extends State<ProfilePage> {
                                       'Do you want to save your profile changes?'),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.of(context)
-                                          .pop(false), // Cancel
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
                                       child: const Text('Cancel'),
                                     ),
                                     TextButton(
                                       onPressed: () =>
-                                          Navigator.of(context).pop(true), // OK
+                                          Navigator.of(context).pop(true),
                                       child: const Text('OK'),
                                     ),
                                   ],
@@ -623,129 +807,384 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileImageSection() {
-    return GestureDetector(
-      onTap: () => _showImagePickerOptions(true),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: dividerColor),
-        ),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: dividerColor,
-                  backgroundImage: _userImage != null
-                      ? FileImage(_userImage!)
-                      : _userImageUrl?.isNotEmpty ?? false
-                          ? NetworkImage(_userImageUrl!)
-                          : null,
-                  child: _userImage == null && (_userImageUrl?.isEmpty ?? true)
-                      ? Icon(Icons.person, size: 50, color: textSecondaryColor)
-                      : null,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: dividerColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Profile Picture',
+            style: GoogleFonts.poppins(
+                fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+          ),
+          const SizedBox(height: 12),
+          Stack(
+            children: [
+              GestureDetector(
+                onTap: () => _showImagePickerOptions(true),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: primaryColor, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 55,
+                    backgroundColor: backgroundColor,
+                    backgroundImage: _getUserImageProvider(),
+                    child: _shouldShowPlaceholder(true)
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo,
+                                  size: 30, color: textSecondaryColor),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Add Photo',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  color: textSecondaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        : null,
+                  ),
                 ),
-                if (_userImage != null || (_userImageUrl?.isNotEmpty ?? false))
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _userImage = null;
-                          _userImageUrl = null;
-                        });
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: const Icon(Icons.close,
-                            size: 16, color: Colors.white),
+              ),
+              if (_userImage != null || (_userImageUrl?.isNotEmpty ?? false))
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () => _showDeleteImageDialog(true),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: errorColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: errorColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(6),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap to add profile picture',
-              style:
-                  GoogleFonts.poppins(fontSize: 12, color: textSecondaryColor),
-            ),
-          ],
-        ),
+                ),
+              Positioned(
+                bottom: 0,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () => _showImagePickerOptions(true),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _getUserImageStatusText(),
+            style: GoogleFonts.poppins(fontSize: 12, color: textSecondaryColor),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCompanyLogoSection() {
-    return GestureDetector(
-      onTap: () => _showImagePickerOptions(false),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: dividerColor),
-        ),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: dividerColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Company Logo',
+            style: GoogleFonts.poppins(
+                fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+          ),
+          const SizedBox(height: 12),
+          Stack(
+            children: [
+              GestureDetector(
+                onTap: () => _showImagePickerOptions(false),
+                child: Container(
+                  width: 120,
+                  height: 120,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: dividerColor),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: primaryColor, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: _companyLogo != null
-                      ? Image.file(_companyLogo!, fit: BoxFit.cover)
-                      : _companyLogoUrl?.isNotEmpty ?? false
-                          ? Image.network(_companyLogoUrl!, fit: BoxFit.cover)
-                          : Icon(Icons.business,
-                              size: 40, color: textSecondaryColor),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: _getCompanyLogoWidget(),
+                  ),
                 ),
-                if (_companyLogo != null ||
-                    (_companyLogoUrl?.isNotEmpty ?? false))
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _companyLogo = null;
-                          _companyLogoUrl = null;
-                        });
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: const Icon(Icons.close,
-                            color: Colors.white, size: 16),
+              ),
+              if (_companyLogo != null ||
+                  (_companyLogoUrl?.isNotEmpty ?? false))
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: GestureDetector(
+                    onTap: () => _showDeleteImageDialog(false),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: errorColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: errorColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(6),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        size: 16,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-              ],
+                ),
+              Positioned(
+                bottom: -5,
+                right: -5,
+                child: GestureDetector(
+                  onTap: () => _showImagePickerOptions(false),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _getCompanyLogoStatusText(),
+            style: GoogleFonts.poppins(fontSize: 12, color: textSecondaryColor),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  ImageProvider? _getUserImageProvider() {
+    if (_userImage != null) {
+      return FileImage(_userImage!);
+    } else if (_userImageUrl?.isNotEmpty ?? false) {
+      return NetworkImage(_userImageUrl!);
+    }
+    return null;
+  }
+
+  bool _shouldShowPlaceholder(bool isUserImage) {
+    if (isUserImage) {
+      return _userImage == null && (_userImageUrl?.isEmpty ?? true);
+    } else {
+      return _companyLogo == null && (_companyLogoUrl?.isEmpty ?? true);
+    }
+  }
+
+  String _getUserImageStatusText() {
+    if (_userImage != null) {
+      return 'New image selected • Tap save to upload';
+    } else if (_userImageUrl?.isNotEmpty ?? false) {
+      return 'Current profile picture • Tap to change';
+    } else {
+      return 'Tap to add your profile picture';
+    }
+  }
+
+  Widget _getCompanyLogoWidget() {
+    if (_companyLogo != null) {
+      return Image.file(_companyLogo!, fit: BoxFit.cover);
+    } else if (_companyLogoUrl?.isNotEmpty ?? false) {
+      return Image.network(
+        _companyLogoUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildLogoPlaceholder();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+              color: primaryColor,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap to add company logo',
-              style:
-                  GoogleFonts.poppins(fontSize: 12, color: textSecondaryColor),
+          );
+        },
+      );
+    } else {
+      return _buildLogoPlaceholder();
+    }
+  }
+
+  Widget _buildLogoPlaceholder() {
+    return Container(
+      color: backgroundColor,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_business, size: 30, color: textSecondaryColor),
+          const SizedBox(height: 4),
+          Text(
+            'Add Logo',
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getCompanyLogoStatusText() {
+    if (_companyLogo != null) {
+      return 'New logo selected • Tap save to upload';
+    } else if (_companyLogoUrl?.isNotEmpty ?? false) {
+      return 'Current company logo • Tap to change';
+    } else {
+      return 'Tap to add your company logo (optional)';
+    }
+  }
+
+  void _showDeleteImageDialog(bool isUserImage) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              Icon(Icons.delete_outline, color: errorColor),
+              const SizedBox(width: 8),
+              Text(
+                'Delete Image',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600, fontSize: 18),
+              ),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to delete this ${isUserImage ? 'profile picture' : 'company logo'}?\n\nThis action cannot be undone.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                    color: textSecondaryColor, fontWeight: FontWeight.w500),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _deleteImagePermanently(isUserImage);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: errorColor,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -797,9 +1236,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String? prefix,
     bool? overrideEnabled,
   }) {
-    final bool isEnabled =
-        overrideEnabled ?? true; // Replace 'true' with _isEditing if available
-
+    final isEnabled = overrideEnabled ?? _isEditing;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
@@ -807,16 +1244,13 @@ class _ProfilePageState extends State<ProfilePage> {
         keyboardType: type,
         enabled: isEnabled,
         inputFormatters: [
-          FilteringTextInputFormatter.allow(
-              RegExp(r'[a-zA-Z\s]')), // Only letters and spaces
+          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))
         ],
         decoration: InputDecoration(
           labelText: label,
           prefixText: prefix,
-          prefixIcon: Icon(
-            icon,
-            color: isEnabled ? primaryColor : textSecondaryColor,
-          ),
+          prefixIcon:
+              Icon(icon, color: isEnabled ? primaryColor : textSecondaryColor),
           suffixIcon: isEnabled && controller.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 20),
@@ -826,9 +1260,7 @@ class _ProfilePageState extends State<ProfilePage> {
               : null,
         ),
         style: GoogleFonts.poppins(
-          fontSize: 14,
-          color: isEnabled ? textColor : textSecondaryColor,
-        ),
+            fontSize: 14, color: isEnabled ? textColor : textSecondaryColor),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
             return '$label is required';

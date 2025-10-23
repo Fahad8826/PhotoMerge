@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,9 +30,12 @@ class AllVideosPage extends StatefulWidget {
 
 class _AllVideosPageState extends State<AllVideosPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   String _searchQuery = '';
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
+  bool _isSubscribed = true;
   bool _isSearchVisible = false;
 
   // Theme spacing
@@ -45,6 +49,78 @@ class _AllVideosPageState extends State<AllVideosPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSubscriptionStatus(); // ✅ CORRECT PLACE
+  }
+
+  Future<void> _checkSubscriptionStatus() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final isSubscribed = userDoc.data()?['isSubscribed'] ?? false;
+
+      if (!isSubscribed) {
+        setState(() => _isSubscribed = false);
+        _showSubscriptionPopup();
+      } else {
+        setState(() => _isSubscribed = true);
+      }
+    } catch (e) {
+      print('Error checking subscription status: $e');
+      // Optionally handle error
+    }
+  }
+
+  void _showSubscriptionPopup() {
+    Future.delayed(Duration.zero, () {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Subscription Required',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          content: Text(
+            'You need an active subscription to view videos.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Go back
+              },
+              child: Text('Cancel',
+                  style: GoogleFonts.poppins(
+                      color: const Color.fromARGB(255, 214, 17, 17))),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pushNamed(context,
+                    '/usersubscription'); // Navigate to subscription page
+              },
+              child: Text(
+                'Subscribe Now',
+                style: GoogleFonts.poppins(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   @override
@@ -119,7 +195,17 @@ class _AllVideosPageState extends State<AllVideosPage> {
         ),
       ),
       body: SafeArea(
-        child: _buildVideosSection(),
+        child: _isSubscribed
+            ? _buildVideosSection()
+            : Center(
+                child: Text(
+                'Please subscribe to view videos',
+                style: GoogleFonts.poppins(
+                  color: AppTheme.textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              )),
       ),
     );
   }
@@ -301,15 +387,6 @@ class _AllVideosPageState extends State<AllVideosPage> {
         );
       },
     );
-  }
-
-  int _getGridCrossAxisCount(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 6;
-    if (width > 900) return 5;
-    if (width > 600) return 4;
-    if (width > 400) return 3;
-    return 2;
   }
 
   Widget _buildLoadingIndicator() {
@@ -836,104 +913,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _controller.seekTo(Duration(seconds: currentPosition + 10));
   }
 
-  void _togglePlayPause() {
-    if (_controller.value.isPlaying) {
-      debugPrint('VideoPlayerScreen: Manual pause');
-      _controller.pause();
-      _audioHandler?.pause();
-    } else {
-      debugPrint('VideoPlayerScreen: Manual play');
-      _controller.play();
-      _audioHandler?.play();
-    }
-    setState(() {});
-  }
-
-  void _syncPlaybackWithAudioHandler() {
-    _audioHandler?.playbackState.listen((state) {
-      if (state.playing && !_controller.value.isPlaying) {
-        _controller.play();
-      } else if (!state.playing && _controller.value.isPlaying) {
-        _controller.pause();
-      }
-    });
-  }
-
-  // Future<void> _changeQuality(String quality) async {
-  //   final currentPosition = _controller.value.position;
-  //   final wasPlaying = _controller.value.isPlaying;
-
-  //   // Explicitly pause before disposing
-  //   _controller.pause();
-  //   await _audioHandler?.pause();
-
-  //   // Short delay to allow pause to take effect
-  //   await Future.delayed(const Duration(milliseconds: 300));
-
-  //   _controller.removeListener(_onPlayerValueChange);
-  //   _controller.dispose();
-
-  //   // Create new controller
-  //   _controller = YoutubePlayerController(
-  //     initialVideoId: widget.videoId,
-  //     flags: YoutubePlayerFlags(
-  //       autoPlay: wasPlaying, // Resume only if was playing
-  //       mute: false,
-  //       enableCaption: true,
-  //       forceHD: quality == '720p',
-  //     ),
-  //   );
-
-  //   _controller.addListener(_onPlayerValueChange);
-  //   _controller.seekTo(currentPosition);
-
-  //   _syncPlaybackWithAudioHandler();
-
-  //   setState(() {
-  //     _currentQuality = quality;
-  //   });
-
-  //   Navigator.pop(context);
+  // void _togglePlayPause() {
+  //   if (_controller.value.isPlaying) {
+  //     debugPrint('VideoPlayerScreen: Manual pause');
+  //     _controller.pause();
+  //     _audioHandler?.pause();
+  //   } else {
+  //     debugPrint('VideoPlayerScreen: Manual play');
+  //     _controller.play();
+  //     _audioHandler?.play();
+  //   }
+  //   setState(() {});
   // }
 
-  // void _showQualitySelector() {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     builder: (context) {
-  //       return SafeArea(
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             Padding(
-  //               padding: const EdgeInsets.all(16.0),
-  //               child: Text(
-  //                 'Select Quality',
-  //                 style: GoogleFonts.poppins(
-  //                   fontSize: 18,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //             ),
-  //             const Divider(height: 1),
-  //             ListView.builder(
-  //               shrinkWrap: true,
-  //               itemCount: _availableQualities.length,
-  //               itemBuilder: (context, index) {
-  //                 final quality = _availableQualities[index];
-  //                 return ListTile(
-  //                   title: Text(quality),
-  //                   trailing: _currentQuality == quality
-  //                       ? const Icon(Icons.check, color: Color(0xFF4CAF50))
-  //                       : null,
-  //                   onTap: () => _changeQuality(quality),
-  //                 );
-  //               },
-  //             ),
-  //           ],
-  //         ),
-  //       );
-  //     },
-  //   );
+  // void _syncPlaybackWithAudioHandler() {
+  //   _audioHandler?.playbackState.listen((state) {
+  //     if (state.playing && !_controller.value.isPlaying) {
+  //       _controller.play();
+  //     } else if (!state.playing && _controller.value.isPlaying) {
+  //       _controller.pause();
+  //     }
+  //   });
   // }
 
   @override
