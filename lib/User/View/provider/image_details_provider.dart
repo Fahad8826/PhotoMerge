@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -310,46 +310,11 @@ class ImageDetailViewModel extends ChangeNotifier {
     required VoidCallback onComplete,
   }) async {
     onStart();
-    bool hasPermission = true;
 
     try {
-      if (Platform.isAndroid) {
-        final deviceInfo = DeviceInfoPlugin();
-        final androidInfo = await deviceInfo.androidInfo;
-        final sdkInt = androidInfo.version.sdkInt;
-
-        if (sdkInt < 33) {
-          final status = await Permission.storage.request();
-          hasPermission = status.isGranted;
-          if (!hasPermission && status.isPermanentlyDenied) {
-            _showPermissionDeniedSnackBar(context, 'Storage');
-            onComplete();
-            return;
-          } else if (!hasPermission) {
-            _showSnackBar(context, 'Storage permission denied');
-            onComplete();
-            return;
-          }
-        } else {
-          final status = await Permission.photos.request();
-          hasPermission = status.isGranted;
-          if (!hasPermission && status.isPermanentlyDenied) {
-            _showPermissionDeniedSnackBar(context, 'Photo access');
-            onComplete();
-            return;
-          } else if (!hasPermission) {
-            _showSnackBar(context, 'Photo access permission denied');
-            onComplete();
-            return;
-          }
-        }
-      }
-
-      if (!hasPermission) {
-        onComplete();
-        return;
-      }
-
+      // ---------------------------------------------------------------
+      // 1. Fetch User Data (Subscription / Free Download Logic)
+      // ---------------------------------------------------------------
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) {
         _showSnackBar(context, 'User data not found');
@@ -372,19 +337,22 @@ class ImageDetailViewModel extends ChangeNotifier {
       }
 
       if (isSubscribed && subscriptionExpiry == null) {
-        _showSnackBar(
-          context,
-          'Subscription data is incomplete. Please contact support.',
-        );
+        _showSnackBar(context,
+            'Subscription data is incomplete. Please contact support.');
         onComplete();
         return;
       }
 
+      // User allowed: subscription OR free first download
       if (hasActiveSubscription || !freeDownloadUsed) {
         _showSnackBar(context, 'Processing image...');
 
+        // ---------------------------------------------------------------
+        // 2. Capture Widget as Image
+        // ---------------------------------------------------------------
         final boundary = cardKey.currentContext?.findRenderObject()
             as RenderRepaintBoundary?;
+
         if (boundary == null) {
           _showSnackBar(context, 'Cannot capture image at this time');
           onComplete();
@@ -399,6 +367,7 @@ class ImageDetailViewModel extends ChangeNotifier {
         final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
         if (byteData == null) throw Exception('Failed to capture image data');
 
+        // Resize to A4 resolution
         final codec =
             await ui.instantiateImageCodec(byteData.buffer.asUint8List());
         final frameInfo = await codec.getNextFrame();
@@ -420,10 +389,18 @@ class ImageDetailViewModel extends ChangeNotifier {
             await a4Image.toByteData(format: ui.ImageByteFormat.png);
         final a4PngBytes = a4ByteData!.buffer.asUint8List();
 
-        await FlutterImageGallerySaver.saveImage(a4PngBytes);
+        // ---------------------------------------------------------------
+        // 3. SAVE TO GALLERY — NO PERMISSION REQUIRED ON ANDROID 10+
+        // ---------------------------------------------------------------
+        final result = await ImageGallerySaverPlus.saveImage(
+          a4PngBytes,
+          name: "my_image_${DateTime.now().millisecondsSinceEpoch}",
+        );
+        print(result);
 
         _showSnackBar(context, 'Image saved to gallery!', floating: true);
 
+        // Mark free download used
         if (!hasActiveSubscription) {
           await _firestore.collection('users').doc(userId).update({
             'freeDownloadUsed': true,
@@ -431,8 +408,10 @@ class ImageDetailViewModel extends ChangeNotifier {
           });
         }
       } else {
-        _showSnackBar(context,
-            'You have used your one-time free download. Please subscribe to download more images.');
+        _showSnackBar(
+          context,
+          'You used your one-time free download. Please subscribe to download more.',
+        );
         _showSubscriptionDialog(context);
       }
     } catch (e) {
