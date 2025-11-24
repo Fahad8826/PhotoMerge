@@ -16,10 +16,12 @@ allprojects {
     }
 }
 
-rootProject.buildDir = "../build"
+// FIX: buildDir must be a File, not a String
+rootProject.buildDir = file("../build")
 
 subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    // FIX: buildDir must be a File
+    project.buildDir = file("${rootProject.buildDir}/${project.name}")
 }
 
 subprojects {
