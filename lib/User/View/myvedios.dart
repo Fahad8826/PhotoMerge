@@ -807,14 +807,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late YoutubePlayerController _controller;
   bool _isFullScreen = false;
   YoutubePlayerValue? _playerValue;
-  String _currentQuality = 'auto';
-  List<String> _availableQualities = ['auto', '360p', '720p'];
   VideoAudioHandler? _audioHandler;
 
   @override
   void initState() {
     super.initState();
     NoScreenshot.instance.screenshotOff();
+
     _controller = YoutubePlayerController(
       initialVideoId: widget.videoId,
       flags: const YoutubePlayerFlags(
@@ -822,9 +821,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         mute: false,
         enableCaption: true,
         forceHD: false,
+        // useHybridComposition: false, // Helps fix loading/lag on Android
       ),
     );
+
+    // Add listener for debugging + sync with audio_service
     _controller.addListener(_onPlayerValueChange);
+
+    // Debug: Log player state and errors
+    _controller.addListener(() {
+      if (_controller.value.hasError) {
+        debugPrint('🚨 YouTube Player Error Code: ${_controller.value.errorCode}');
+        // Common codes:
+        // 2/5: Player error
+        // 100: Video not found
+        // 101/150: Embedding not allowed (restricted video)
+      }
+      if (_controller.value.isReady) {
+        debugPrint('✅ YouTube Player is READY');
+      }
+      if (_controller.value.playerState == PlayerState.buffering) {
+        debugPrint('⏳ YouTube Player still loading...');
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAudioSession();
     });
@@ -832,58 +852,56 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initializeAudioSession() async {
     debugPrint('VideoPlayerScreen: Initializing audio session');
+
     try {
       final session = await AudioSession.instance;
-      await session.configure(AudioSessionConfiguration(
-        avAudioSessionCategory: AVAudioSessionCategory.playback,
-        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions(
-          AVAudioSessionCategoryOptions.allowBluetooth.value |
-              AVAudioSessionCategoryOptions.defaultToSpeaker.value,
-        ),
-      ));
+
+      // Use music preset – best for video playback (handles ducking, focus, etc.)
+      await session.configure(const AudioSessionConfiguration.music());
 
       final activated = await session.setActive(true);
       debugPrint('VideoPlayerScreen: Audio session activated=$activated');
 
-      // Use singleton audioHandler from main.dart
+      // Safe access to global audioHandler (may be null if init failed)
+      if (audioHandler == null) {
+        debugPrint('VideoPlayerScreen: Global audioHandler is null – background playback disabled');
+        return;
+      }
+
       _audioHandler = audioHandler as VideoAudioHandler?;
 
       final videoId = widget.videoId.trim();
       final title = widget.title.trim();
-      if (videoId.isNotEmpty && title.isNotEmpty) {
-        debugPrint(
-            'VideoPlayerScreen: Updating MediaItem with videoId=$videoId, title=$title');
+
+      if (videoId.isNotEmpty && title.isNotEmpty && _audioHandler != null) {
+        debugPrint('VideoPlayerScreen: Updating MediaItem with videoId=$videoId, title=$title');
         _audioHandler!.updateMediaItem(MediaItem(
           id: videoId,
           title: title,
           artist: 'YouTube',
           duration: null,
         ));
-      } else {
-        debugPrint(
-            'Error: Invalid inputs - videoId: "$videoId", title: "$title"');
-      }
 
-      // Sync YouTube controller when playback state changes
-      _audioHandler!.playbackState.listen((state) {
-        debugPrint(
-            'VideoPlayerScreen: Playback state changed - playing=${state.playing}');
-        if (state.playing && !_controller.value.isPlaying) {
-          debugPrint('VideoPlayerScreen: Playing video');
-          _controller.play(); // Only control video player
-        } else if (!state.playing && _controller.value.isPlaying) {
-          debugPrint('VideoPlayerScreen: Pausing video');
-          _controller.pause(); // Only control video player
-        }
-      });
+        // Sync external controls (lock screen/notification) → YouTube player
+        _audioHandler!.playbackState.listen((state) {
+          debugPrint('VideoPlayerScreen: External playback state changed - playing=${state.playing}');
+          if (state.playing && !_controller.value.isPlaying) {
+            _controller.play();
+          } else if (!state.playing && _controller.value.isPlaying) {
+            _controller.pause();
+          }
+        });
+      }
     } catch (e, stackTrace) {
-      debugPrint('Error initializing AudioService: $e\n$stackTrace');
+      debugPrint('Error initializing AudioSession/AudioService: $e\n$stackTrace');
     }
   }
 
   void _onPlayerValueChange() {
     if (!mounted) return;
     _playerValue = _controller.value;
+
+    // Sync YouTube player state → audio_service (for notification controls)
     if (_audioHandler != null) {
       final newState = PlaybackState(
         playing: _controller.value.isPlaying,
@@ -895,9 +913,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ? AudioProcessingState.buffering
             : AudioProcessingState.ready,
       );
+
       if (newState != _audioHandler!.playbackState.value) {
-        debugPrint(
-            'VideoPlayerScreen: Updating playback state - playing=${newState.playing}');
+        debugPrint('VideoPlayerScreen: Updating external playback state - playing=${newState.playing}');
         _audioHandler!.playbackState.add(newState);
       }
     }
@@ -912,29 +930,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final currentPosition = _controller.value.position.inSeconds;
     _controller.seekTo(Duration(seconds: currentPosition + 10));
   }
-
-  // void _togglePlayPause() {
-  //   if (_controller.value.isPlaying) {
-  //     debugPrint('VideoPlayerScreen: Manual pause');
-  //     _controller.pause();
-  //     _audioHandler?.pause();
-  //   } else {
-  //     debugPrint('VideoPlayerScreen: Manual play');
-  //     _controller.play();
-  //     _audioHandler?.play();
-  //   }
-  //   setState(() {});
-  // }
-
-  // void _syncPlaybackWithAudioHandler() {
-  //   _audioHandler?.playbackState.listen((state) {
-  //     if (state.playing && !_controller.value.isPlaying) {
-  //       _controller.play();
-  //     } else if (!state.playing && _controller.value.isPlaying) {
-  //       _controller.pause();
-  //     }
-  //   });
-  // }
 
   @override
   void dispose() {
@@ -952,26 +947,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (_isFullScreen) {
           _controller.toggleFullScreenMode();
           return false;
-        } else {
-          SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-          return true;
         }
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+        return true;
       },
       child: YoutubePlayerBuilder(
         onExitFullScreen: () {
           SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-          setState(() {
-            _isFullScreen = false;
-          });
+          setState(() => _isFullScreen = false);
         },
         onEnterFullScreen: () {
           SystemChrome.setPreferredOrientations([
             DeviceOrientation.landscapeLeft,
             DeviceOrientation.landscapeRight,
           ]);
-          setState(() {
-            _isFullScreen = true;
-          });
+          setState(() => _isFullScreen = true);
         },
         player: YoutubePlayer(
           controller: _controller,
@@ -982,28 +972,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             handleColor: Color(0xFF4CAF50),
           ),
           bottomActions: [
-            CurrentPosition(),
-            ProgressBar(
-              isExpanded: true,
-              colors: const ProgressBarColors(
-                playedColor: Color(0xFF4CAF50),
-                handleColor: Color(0xFF4CAF50),
-              ),
-            ),
-            RemainingDuration(),
-            IconButton(
-              onPressed: _skipBackward,
-              icon: const Icon(Icons.replay_10, color: Colors.white),
-            ),
-            IconButton(
-              onPressed: _skipForward,
-              icon: const Icon(Icons.forward_10, color: Colors.white),
-            ),
-            // IconButton(
-            //   icon: const Icon(Icons.settings, color: Colors.white),
-            //   onPressed: _showQualitySelector,
-            // ),
-            FullScreenButton(),
+            const CurrentPosition(),
+            ProgressBar(isExpanded: true),
+            const RemainingDuration(),
+            IconButton(onPressed: _skipBackward, icon: const Icon(Icons.replay_10, color: Colors.white)),
+            IconButton(onPressed: _skipForward, icon: const Icon(Icons.forward_10, color: Colors.white)),
+            const FullScreenButton(),
           ],
         ),
         builder: (context, player) {
@@ -1013,11 +987,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 : AppBar(
                     backgroundColor: Colors.white,
                     leading: IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Color(0xFF00A19A)),
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFF00A19A)),
                       onPressed: () {
-                        SystemChrome.setPreferredOrientations(
-                            [DeviceOrientation.portraitUp]);
+                        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
                         Navigator.pop(context);
                       },
                     ),
@@ -1051,6 +1023,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
+                          // Add more video details here if needed
                         ],
                       ),
                     ),

@@ -31,13 +31,15 @@ import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:upgrader/upgrader.dart';
 
-late final AudioHandler audioHandler;
+late AudioHandler? audioHandler;  // Made nullable to avoid LateInitializationError
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp();
+
   await AwesomeNotifications().initialize(
-    null, // Default icon
+    null,
     [
       NotificationChannel(
         channelKey: 'basic_channel',
@@ -49,6 +51,7 @@ void main() async {
       ),
     ],
   );
+
   try {
     debugPrint('main: Initializing AudioService...');
     audioHandler = await AudioService.init(
@@ -60,24 +63,24 @@ void main() async {
         androidShowNotificationBadge: true,
       ),
     );
-    debugPrint('main: AudioService initialized');
-  } catch (e) {
-    debugPrint('main: AudioService init error: $e');
+    debugPrint('main: AudioService initialized successfully');
+  } catch (e, stack) {
+    debugPrint('main: AudioService init FAILED: $e');
+    debugPrint(stack.toString());
+    audioHandler = null;  // Explicitly null on failure
   }
+
   runApp(
     MultiProvider(
       providers: [
-        
         ChangeNotifierProvider(create: (_) => AuthProviders()),
         ChangeNotifierProvider(create: (_) => UserDataProvider()),
         ChangeNotifierProvider(create: (_) => CategoriesProvider()),
         ChangeNotifierProvider(create: (_) => RecentImagesProvider()),
         ChangeNotifierProvider(create: (_) => CarouselProvider()),
         ChangeNotifierProvider(create: (_) => ImageProviderService()),
-
-        // Add more providers here as needed
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
